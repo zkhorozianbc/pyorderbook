@@ -1,12 +1,9 @@
 from collections import deque, defaultdict
 from dataclasses import dataclass, field
-from enum import StrEnum, auto
+from enum import Enum, auto
 from decimal import Decimal
 
-clock = 0
-
-
-class Side(StrEnum):
+class Side(Enum):
     BUY = auto()
     SELL = auto()
 
@@ -14,8 +11,7 @@ class Side(StrEnum):
     def other(self) -> "Side":
         return Side.BUY if self == Side.SELL else Side.SELL
 
-
-class OrderStatus(StrEnum):
+class OrderStatus(Enum):
     QUEUED = auto()
     PARTIAL_FILL = auto()
     FILLED = auto()
@@ -31,12 +27,16 @@ class Order:
     id: int = field(init=False)
     original_quantity: int = field(init=False)
 
+    _clock: int = field(init=False, repr=False, default=0)
+
     def __post_init__(self):
+        #increment clock to set new order id
+        self._clock += 1
+        self.id = self._clock
         # handle float to decimal
         self.price = Decimal(str(self.price))
+        # save original quantity for transaction summary
         self.original_quantity = self.quantity
-        global clock
-        self.id = (clock := clock + 1)
 
 
 @dataclass
