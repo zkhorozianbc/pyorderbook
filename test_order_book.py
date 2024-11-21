@@ -2,26 +2,35 @@ from order_book import Book, Order, Side
 from decimal import Decimal
 
 
-def test_simple_order_flow():
+def test_buy():
     book = Book()
     book.process_order(Order(3.5, 70, "IBM", Side.SELL))
     book.process_order(Order(3.6, 70, "IBM", Side.SELL))
     transaction_summary = book.process_order(Order(54.3, 140, "IBM", Side.BUY))
     assert len(transaction_summary.transactions) == 2
     assert transaction_summary.average_price == Decimal("3.55")
-    book.process_order(Order(341.24, 70, "IBM", Side.BUY))
-    assert book.levels["IBM"][Side.BUY][Decimal("341.24")]
 
 
-# print(book.process_sell(Order(37.54, 30)))
-# print(book.process_sell(Order(37.54, 30)))
-# print(book.process_sell(Order(48.50, 30)))
-# print(book.process_sell(Order(35.50, 30)))
+def test_sell():
+    book = Book()
+    book.process_order(Order(3.5, 70, "GOOG", Side.BUY))
+    book.process_order(Order(3.6, 70, "GOOG", Side.BUY))
+    transaction_summary = book.process_order(Order(54.3, 140, "GOOG", Side.SELL))
+    assert len(transaction_summary.transactions) == 0
+    assert transaction_summary.average_price is None
+    transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
+    print(transaction_summary)
+    assert len(transaction_summary.transactions) == 2
+    assert transaction_summary.average_price == Decimal("3.1")
 
 
-# print(book.process_buy(buy_order=Order(34, 70)))
-# while book.buys:
-#     print(heappop(book.buys))
-# print('sells')
-# while book.sells:
-#     print(heappop(book.sells))
+def test_cancel():
+    book = Book()
+    buy1 = Order(3.5, 70, "GOOG", Side.BUY)
+    buy2 = Order(3.6, 70, "GOOG", Side.BUY)
+    book.process_order(buy1)
+    book.process_order(buy2)
+    book.cancel_order(buy1.id)
+    transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
+    assert len(transaction_summary.transactions) == 1
+    assert transaction_summary.average_price == Decimal("3.1")

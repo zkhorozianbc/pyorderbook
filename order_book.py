@@ -2,6 +2,17 @@ from collections import deque, defaultdict
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from decimal import Decimal
+from typing import Generator
+
+DEBUG = True
+MIN_ORDER_PRICE: Decimal = Decimal("0")
+MAX_ORDER_PRICE: Decimal = Decimal("10_000")
+ID_COUNTER: int = 0
+type Symbol = str
+type Price = Decimal
+type Level = deque[Order]
+type LevelCollection = defaultdict[Symbol, defaultdict[Side, defaultdict[Price, deque]]]
+
 
 class Side(Enum):
     BUY = auto()
@@ -11,6 +22,7 @@ class Side(Enum):
     def other(self) -> "Side":
         return Side.BUY if self == Side.SELL else Side.SELL
 
+
 class OrderStatus(Enum):
     QUEUED = auto()
     PARTIAL_FILL = auto()
@@ -18,21 +30,26 @@ class OrderStatus(Enum):
 
 
 @dataclass
+class OrderRange:
+    min_price: Decimal = MIN_ORDER_PRICE
+    max_price: Decimal = MAX_ORDER_PRICE
+    is_valid: bool = False
+
+
+@dataclass
 class Order:
-    price: Decimal
+    price: Price
     quantity: int
-    symbol: str
+    symbol: Symbol
     side: Side
     is_cancelled: bool = False
     id: int = field(init=False)
     original_quantity: int = field(init=False)
 
-    _clock: int = field(init=False, repr=False, default=0)
-
     def __post_init__(self):
-        #increment clock to set new order id
-        self._clock += 1
-        self.id = self._clock
+        global ID_COUNTER
+        # increment clock to set new order id
+        self.id = (ID_COUNTER := ID_COUNTER + 1)
         # handle float to decimal
         self.price = Decimal(str(self.price))
         # save original quantity for transaction summary
@@ -44,7 +61,7 @@ class Transaction:
     incoming_order_id: int
     standing_order_id: int
     quantity: int
-    price: Decimal
+    price: Price
 
 
 @dataclass
@@ -52,8 +69,8 @@ class TransactionSummary:
     order_id: int
     filled: OrderStatus
     transactions: list[Transaction] | None
-    total_cost: Decimal | None
-    average_price: Decimal | None
+    total_cost: Price | None
+    average_price: Price | None
 
     @classmethod
     def from_order_and_transactions(
@@ -73,23 +90,13 @@ class TransactionSummary:
         return cls(order.id, filled, transactions, total_cost, avg_price)
 
 
-def price_iterator(price: Decimal, side: Side):
-    min_price: Decimal = Decimal("0.0")
-    max_price: Decimal = Decimal("1000.0")
-    start: Decimal = min_price if side == Side.BUY else max_price
-    end: Decimal = price
-    step_size: Decimal = Decimal("0.01")
-    if side == Side.SELL:
-        step_size *= -1
-    while start <= end:
-        yield start
-        start += step_size
-
-
 class Book:
     def __init__(self) -> None:
-        self.levels: defaultdict[str, defaultdict[Side, defaultdict[Decimal, deque[Order]]]] = defaultdict(
+        self.levels: LevelCollection = defaultdict(
             lambda: defaultdict(lambda: defaultdict(deque))
+        )
+        self.order_range: defaultdict[Symbol, defaultdict[Side, OrderRange]] = (
+            defaultdict(lambda: defaultdict(OrderRange))
         )
         self.order_map: dict[int, Order] = {}
 
@@ -106,33 +113,103 @@ class Book:
             incoming_order.id, standing_order.id, matched_quantity, matched_price
         )
 
+    def get_level(self, symbol: str, side: Side, price: Decimal) -> Level:
+        return self.levels[symbol][side][price]
+
+    def iter_levels(
+        self, symbol: str, side: Side, price: Price
+    ) -> Generator[Level, None, None]:
+        """Get levels for buy or sell levels within order range. For sells, yield levels with open interest
+        from best sell (lowest) to worst (highest). For buys, iterate from highest to lowest price.
+        """
+        order_range: OrderRange = self.order_range[symbol][side]
+        if not order_range.is_valid:
+            print("No orders", symbol, side)
+            return
+        step_size: Decimal = Decimal("0.01")
+        levels = self.levels[symbol][side]
+        if side == side.BUY:
+            curr = order_range.max_price
+            end = max(price, order_range.min_price)
+            while curr >= end:
+                yield levels[curr]
+                curr -= step_size
+        else:
+            curr = order_range.min_price
+            end = min(price, order_range.max_price)
+            while curr <= end:
+                yield levels[curr]
+                curr += step_size
+
+    def enqueue_order(self, order: Order):
+        # add to price level queue
+        level = self.get_level(order.symbol, order.side, order.price)
+        level.append(order)
+        # create order reference in order_map
+        self.order_map[order.id] = order
+        # update min/max order price for symbol/side
+        self.update_order_range(order.symbol, order.side, order.price)
+
+    def flush_cancelled_order(self, order: Order, level: Level):
+        del self.order_map[order.id]
+        level.popleft()
+
     def process_order(self, incoming_order: Order) -> TransactionSummary:
-        print("~~~ Processing", incoming_order)
+        if DEBUG:
+            print(
+                "~~~ Processing",
+                incoming_order,
+                "\nOrder range",
+                self.order_range[incoming_order.symbol][incoming_order.side.other],
+            )
+        # stores list of crossed order transactions. Used to compute
+        # summary statistics in TransactionSummary object
         transactions: list[Transaction] = []
-        standing_orders = self.levels[incoming_order.symbol][incoming_order.side.other]
-        for price in price_iterator(incoming_order.price, incoming_order.side):
-            while incoming_order.quantity and standing_orders[price]:
-                level = standing_orders[price]
+        for level in self.iter_levels(
+            incoming_order.symbol, incoming_order.side.other, incoming_order.price
+        ):
+            while incoming_order.quantity and level:
+                # if we reach this point, we have found the best standing order as of now
                 standing_order: Order = level[0]
+                if DEBUG:
+                    print("Found matching standing", standing_order)
+
+                # flush zombie orders that were previously cancelled
                 if standing_order.is_cancelled:
-                    del self.order_map[standing_order.id]
-                    level.popleft()
+                    self.flush_cancelled_order(standing_order, level)
                     continue
+
+                # update quantities on incoming and standing order and
+                # return Transaction object containing sale price and filled quantity
                 transaction = self.fill(
                     standing_order=standing_order, incoming_order=incoming_order
                 )
                 transactions.append(transaction)
+
+                # deque filled standing order
                 if not standing_order.quantity:
                     level.popleft()
+
+        # enqueue incoming order if partial or no fill.
         if incoming_order.quantity:
-            self.levels[incoming_order.symbol][incoming_order.side][
-                incoming_order.price
-            ].append(incoming_order)
-            self.order_map[incoming_order.id] = incoming_order
+            self.enqueue_order(incoming_order)
+
+        # compute transaction summary statistics
         transaction_summary: TransactionSummary = (
             TransactionSummary.from_order_and_transactions(incoming_order, transactions)
         )
         return transaction_summary
+
+    def update_order_range(self, symbol: Symbol, side: Side, price: Price) -> None:
+        order_range = self.order_range[symbol][side]
+        if not order_range.is_valid:
+            order_range.min_price = price
+            order_range.max_price = price
+            order_range.is_valid = True
+        elif price < order_range.min_price:
+            order_range.min_price = price
+        elif price > order_range.max_price:
+            order_range.max_price = price
 
     def cancel_order(self, order_id: int) -> bool:
         print("~~~ Processing Cancel Request for Order Id", order_id)
