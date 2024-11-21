@@ -13,6 +13,7 @@ type Symbol = str
 type Price = Decimal
 type Level = deque[Order]
 type LevelCollection = defaultdict[Symbol, defaultdict[Side, defaultdict[Price, Level]]]
+
 ID_COUNTER: int = 0
 DEBUG = False
 MIN_ORDER_PRICE: Price = Decimal("0")
@@ -320,15 +321,17 @@ class Book:
 
 
 def simulate_order_flow():
+    """Toy order flow simulation. Feel free to experiment and set 
+    your desired log level at the top of the file!"""
     book = Book()
     book.process_order(Order(3.5, 70, "GOOG", Side.BUY))
     book.process_order(Order(3.6, 70, "GOOG", Side.BUY))
-    transaction_summary = book.process_order(Order(54.3, 140, "GOOG", Side.SELL))
-    print(transaction_summary)
-    transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
-    assert len(transaction_summary.transactions) == 2
-    assert transaction_summary.average_price == Decimal("3.1")
-
+    book.process_order(Order(54.3, 140, "GOOG", Side.SELL))
+    book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
+    book.process_order(Order(3.6, 70, "IBM", Side.BUY))
+    book.process_order(Order(54.3, 10, "TSLA", Side.SELL))
+    book.process_order(Order(3.1, 1430, "GOOG", Side.SELL))
+    book.process_order(Order(5.3, 130, "TSLA", Side.BUY))
 
 if __name__ == "__main__":
     simulate_order_flow()
