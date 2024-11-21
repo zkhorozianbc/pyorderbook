@@ -15,7 +15,10 @@ Handles buy and sell orders and order cancellation
 - uv
 ### Instructions to test
 ```
+# create uv venv
 uv init
+# runs test_order_book.py
 uv run pytest
+# runs simulate_order_flow function in order_book.py
 un run order_book.py
 ```
