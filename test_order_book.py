@@ -19,7 +19,6 @@ def test_sell():
     assert len(transaction_summary.transactions) == 0
     assert transaction_summary.average_price is None
     transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
-    print(transaction_summary)
     assert len(transaction_summary.transactions) == 2
     assert transaction_summary.average_price == Decimal("3.1")
 
