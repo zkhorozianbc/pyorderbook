@@ -3,6 +3,17 @@
 Handles buy and sell orders and order cancellation
 
 ### Design
-- Price Levels are stored in a default dictionary for each side (buy or sell), as a collections.deque
-- Min/Max standing order prices for each side are stored and used to create smart iterator over ticks (tick size = 1 cent) to find matching order
-- Order Cancellation is done by storing a map of order ids to order references, and marking cancelled orders as cancelled. During price matching for subsequent orders, if a cancelled order is encountered, it is dequeued from the price level
+- Orders are matched according to Price-Time priority
+- Price Levels are stored in a double-ended queue (collections.deque), 1 queue for each symbol/side/price. The symbol/side/price grouping is represented as a nested default dict of default dicts, where the leaf dict has price (Decimal Type) keys and collections.deque values. As the design suggests, queues are created when an unseen price is received for some symbol/side
+- Unfilled orders are enqueued to the tail of the corresponding symbol/side/price queue
+- Min/Max standing order prices for each side are stored and used to create smart iterator over prices (tick size = 1 cent) to find matching order
+- Matching Logic iterates through prices and dequeues from the head of a matching price level, maintaining a FIFO ordering and encforcing the time priority
+- Order Cancellation is done by locating orders with an order reference map, and marking cancelled orders with a cancelled flag. Cancelled orders are actually deleted (dequeued from price level) if/when they are encountered during the matching process of a subsequent order
+
+### System Requirements
+- uv
+### Instructions to test
+```
+uv init
+uv run pytest
+```
