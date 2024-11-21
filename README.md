@@ -1,4 +1,4 @@
-### Limit Order Book in Python 3.12
+### Limit Order Book written in pure Python 3.12
 
 Handles buy and sell orders and order cancellation
 
