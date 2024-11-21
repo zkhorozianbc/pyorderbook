@@ -1,6 +1,7 @@
 ### Limit Order Book written in pure Python 3.12
 
-Handles buy and sell orders and order cancellation
+- Order matching engine enforcing Price-Time priority
+- Order cancellation
 
 ### Design
 - Orders are matched according to Price-Time priority
