@@ -17,4 +17,5 @@ Handles buy and sell orders and order cancellation
 ```
 uv init
 uv run pytest
+un run order_book.py
 ```
