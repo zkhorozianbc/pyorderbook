@@ -122,14 +122,16 @@ class TransactionSummary:
         else:
             filled = OrderStatus.QUEUED
         if not transactions:
-            return cls(order.id, filled, transactions,0, None, None)
+            return cls(order.id, filled, transactions, 0, None, None)
         total_cost = Decimal(
             sum(txn.fill_price * txn.fill_quantity for txn in transactions)
         )
         avg_price = Decimal(
             sum(txn.fill_price for txn in transactions) / len(transactions)
         )
-        return cls(order.id, filled, transactions, len(transactions), total_cost, avg_price)
+        return cls(
+            order.id, filled, transactions, len(transactions), total_cost, avg_price
+        )
 
 
 class Book:
@@ -213,7 +215,12 @@ class Book:
         :param level: current level to delete
         :returns: None
         """
-        logger.info("Flushing Price Level for %s at %s price %s", symbol, str(level.side), level.price)
+        logger.info(
+            "Flushing Price Level for %s at %s price %s",
+            symbol,
+            str(level.side),
+            level.price,
+        )
         self.level_map[symbol][level.side].pop(level.price)
         pq.heappop(self.levels[symbol][level.side])
 
@@ -239,9 +246,7 @@ class Book:
                 if best_standing_order.is_cancelled:
                     self.flush_order(best_standing_order, orders_at_level)
                     continue
-                transactions.append(
-                    self.fill(incoming_order, best_standing_order)
-                )
+                transactions.append(self.fill(incoming_order, best_standing_order))
                 if not best_standing_order.quantity:
                     self.flush_order(best_standing_order, orders_at_level)
 
@@ -250,7 +255,7 @@ class Book:
 
         if incoming_order.quantity:
             self.enqueue_order(incoming_order)
-    
+
         transaction_summary = TransactionSummary.from_order_and_transactions(
             incoming_order, transactions
         )
