@@ -4,10 +4,9 @@
 - Order cancellation
 
 ### Design
-- Price Levels are stored in a double-ended queue (collections.deque), 1 queue for each symbol/side/price. The symbol/side/price grouping is represented as a nested default dict of default dicts, where the leaf dict has price (Decimal Type) keys and collections.deque values. New price levels are created when an unseen price is received for some symbol/side
+- Price Levels are stored in heap, as dataclasses with a price attribute and orders attribute. Orders are stores as a double-ended queue (collections.deque). New price levels are created when an unseen price is received for some symbol/side, and standing price levels are deleted when there are no more orders in the queue at that price level.
 - Unfilled orders are enqueued to the tail of the corresponding symbol/side/price queue
-- Min/Max standing order prices for each symbol/side are stored and used to create smart iterator over prices (tick size = 1 cent) to find matching orders
-- Matching Logic iterates through prices (descending order for buys, ascending for sells) and dequeues from the head of each matching price level, maintaining a FIFO ordering and encforcing the time priority
+- Matching Logic iterates through the price level heap (descending order for buys, ascending for sells) and dequeues from the head of each matching price level until the level or incoming order quantity is exhausted
 - Order cancellation is done by locating orders with an order reference map, and marking cancelled orders with a cancelled flag. Cancelled orders are actually deleted (dequeued from price level) if/when they are encountered during the matching process of a subsequent order
 - decimal.Decimal objects are used to store prices due to floating point arithmetic problems
 
