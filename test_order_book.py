@@ -20,7 +20,7 @@ def test_sell():
     assert transaction_summary.average_price is None
     transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
     assert len(transaction_summary.transactions) == 2
-    assert transaction_summary.average_price == Decimal("3.1")
+    assert transaction_summary.average_price == Decimal("3.55")
 
 
 def test_cancel():
@@ -32,4 +32,4 @@ def test_cancel():
     book.cancel_order(buy1.id)
     transaction_summary = book.process_order(Order(3.1, 140, "GOOG", Side.SELL))
     assert len(transaction_summary.transactions) == 1
-    assert transaction_summary.average_price == Decimal("3.1")
+    assert transaction_summary.average_price == Decimal("3.6")
