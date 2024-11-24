@@ -23,4 +23,4 @@ un run order_book.py
 ```
 
 ### Further Improvements
-- Implement order queues as doubly linked lists to support O(1) cancellation. Currently, the cancel_order functionality leaves cancelled orders in the book until they're encountered during order matching, at which point they're removed.
+- Come up with fast array based implementation to store price levels to get better amortized performance of price matching. Current performance is O(1) for best price level and O(log(N)) for next best price
