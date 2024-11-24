@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 type Symbol = str
 type Price = Decimal
-type LevelHeap = list[Level]
+type PriceLevelHeap = list[PriceLevel]
 
 ID_COUNTER: int = 0
 
@@ -85,7 +85,7 @@ class OrderQueue(LinkedList):
 
 
 @dataclass(order=True)
-class Level:
+class PriceLevel:
     side: Side = field(compare=False)
     price: Decimal = field(compare=False)
     orders: OrderQueue = field(default_factory=OrderQueue, compare=False)
@@ -156,8 +156,8 @@ class Book:
 
     def __init__(self) -> None:
         """Creates required data structures for order matching"""
-        self.levels: defaultdict[str, dict[Side, LevelHeap]] = defaultdict(lambda: {Side.BUY: [], Side.SELL: []})
-        self.level_map: defaultdict[str, dict[Side, dict[Price, Level]]] = defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
+        self.levels: defaultdict[str, dict[Side, PriceLevelHeap]] = defaultdict(lambda: {Side.BUY: [], Side.SELL: []})
+        self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
         self.order_map: dict[int, Order] = {}
 
     def fill(
@@ -185,7 +185,7 @@ class Book:
         logger.info("Filled Order: %s", transaction)
         return transaction
 
-    def get_level(self, symbol: str, side: Side, price: Decimal) -> Level | None:
+    def get_level(self, symbol: str, side: Side, price: Decimal) -> PriceLevel | None:
         """Return price level queue for a symbol/side/price
         :param symbol: order symbol
         :param side: order side
@@ -205,7 +205,7 @@ class Book:
         level = self.get_level(order.symbol, order.side, order.price)
         if level is None:
             # create price level
-            level = Level(order.side, order.price)
+            level = PriceLevel(order.side, order.price)
             # add level object to self.levels heap
             pq.heappush(self.levels[order.symbol][order.side], level)
             # add level reference to level map
@@ -233,9 +233,10 @@ class Book:
                 break
             while incoming_order.quantity and orders_at_level:
                 best_standing_order = orders_at_level.peek()
-                transactions.append(self.fill(incoming_order, best_standing_order))
+                transaction: Transaction = self.fill(incoming_order, best_standing_order)
+                transactions.append(transaction)
                 if not best_standing_order.quantity:
-                    logger.debug("Flushing Order Id: %s from book: %s", best_standing_order.id)
+                    logger.debug("Filled standing Order Id: %s from book: %s", best_standing_order.id)
                     orders_at_level.popleft()
                     self.order_map.pop(best_standing_order.id)
 
@@ -271,7 +272,7 @@ class Book:
             return False
         level = self.get_level(order.symbol, order.side, order.price)
         if level is None:
-            raise ValueError(f"Level {order.symbol}:{order.side}:{order.price} doesn't exist!")
+            raise ValueError(f"Price Level {order.symbol}:{order.side}:{order.price} doesn't exist!")
         level.orders.pop(order_id)
 
 def simulate_order_flow():
