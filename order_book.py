@@ -58,7 +58,6 @@ class Order:
     quantity: int
     symbol: Symbol
     side: Side
-    is_cancelled: bool = False
     original_quantity: int = field(init=False)
 
     def __post_init__(self):
@@ -214,31 +213,6 @@ class Book:
         level.orders.append_order(order)
         self.order_map[order.id] = order
 
-    def flush_order(self, order: Order, orders_at_level: OrderQueue) -> None:
-        """Flush cancelled or filled standing order from price level and order map when
-        order is encountered during order matching.
-        :param order: order to cancel
-        :param level: current level that the order at the head of
-        :returns: None
-        """
-        logger.debug("Flushing Order Id: %s from book: %s", order.id)
-        orders_at_level.pop(order.id)
-        self.order_map.pop(order.id)
-
-    def flush_price_level(self, symbol: Symbol, level: Level) -> None:
-        """Pop price level from book and deference level in level map
-        :param symbol: symbol of security
-        :param level: current level to delete
-        :returns: None
-        """
-        logger.info(
-            "Flushing Price Level for %s at %s price %s",
-            symbol,
-            str(level.side),
-            level.price,
-        )
-        self.level_map[symbol][level.side].pop(level.price)
-        pq.heappop(self.levels[symbol][level.side])
 
     def process_order(self, incoming_order: Order) -> TransactionSummary:
         """Main Order procesing function which executes the price-time priority
@@ -259,15 +233,21 @@ class Book:
                 break
             while incoming_order.quantity and orders_at_level:
                 best_standing_order = orders_at_level.peek()
-                if best_standing_order.is_cancelled:
-                    self.flush_order(best_standing_order, orders_at_level)
-                    continue
                 transactions.append(self.fill(incoming_order, best_standing_order))
                 if not best_standing_order.quantity:
-                    self.flush_order(best_standing_order, orders_at_level)
+                    logger.debug("Flushing Order Id: %s from book: %s", best_standing_order.id)
+                    orders_at_level.popleft()
+                    self.order_map.pop(best_standing_order.id)
 
             if not orders_at_level:
-                self.flush_price_level(incoming_order.symbol, level)
+                logger.info(
+                    "Flushing Price Level for %s at %s price %s",
+                    incoming_order.symbol,
+                    str(level.side),
+                    level.price,
+                )
+                self.level_map[incoming_order.symbol][level.side].pop(level.price)
+                pq.heappop(self.levels[incoming_order.symbol][level.side])
 
         if incoming_order.quantity:
             self.enqueue_order(incoming_order)
@@ -279,23 +259,20 @@ class Book:
         return transaction_summary
 
     def cancel_order(self, order_id: int) -> bool:
-        """Cancel Standing Order. Mark order.is_cancelled to true. The order will be flushed
-        from the book when it is encountered during the matching process if it's seen
+        """Cancel Standing Order. Remove order from its price level and delete 
+        reference in order id map
         :param order_id: id field of Order object
         :returns: False if order doesn't exist or if it's already cancelled, True if cancelled successfully.
         """
         logger.info("~~~ Processing Cancel Request for Order Id", order_id)
-        order = self.order_map.get(order_id, None)
+        order = self.order_map.pop(order_id, None)
         if order is None:
             logger.error("Order %s doesnt exist", order_id)
             return False
-        elif order.is_cancelled:
-            logger.warning(
-                "Order %s is already cancelled and hasnt been removed yet", order_id
-            )
-        order.is_cancelled = True
-        return True
-
+        level = self.get_level(order.symbol, order.side, order.price)
+        if level is None:
+            raise ValueError(f"Level {order.symbol}:{order.side}:{order.price} doesn't exist!")
+        level.orders.pop(order_id)
 
 def simulate_order_flow():
     """Toy order flow simulation. Feel free to experiment and set
