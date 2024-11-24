@@ -1,10 +1,11 @@
-from collections import deque, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from decimal import Decimal
 from typing import Callable
 import logging
 import heapq as pq
+from linked_list import LinkedList, Node
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -12,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 type Symbol = str
 type Price = Decimal
+type LevelHeap = list[Level]
 
 ID_COUNTER: int = 0
 
@@ -69,11 +71,25 @@ class Order:
         self.original_quantity = self.quantity
 
 
+class OrderQueue(LinkedList):
+    def append_order(self, order: Order) -> None:
+        key = order.id
+        value = order
+        node = Node(key=key, val=value)
+        super().append(node)
+
+    def peek(self) -> Order:
+        if self.head is None:
+            raise ValueError("Order Queue is empty!")
+        order_at_head: Order = self.head.val
+        return order_at_head
+
+
 @dataclass(order=True)
 class Level:
     side: Side = field(compare=False)
     price: Decimal = field(compare=False)
-    orders: deque[Order] = field(default_factory=deque, compare=False)
+    orders: OrderQueue = field(default_factory=OrderQueue, compare=False)
     sort_key: Price = field(compare=True, init=False)
 
     def __post_init__(self):
@@ -141,8 +157,8 @@ class Book:
 
     def __init__(self) -> None:
         """Creates required data structures for order matching"""
-        self.levels = defaultdict(lambda: {Side.BUY: [], Side.SELL: []})
-        self.level_map = defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
+        self.levels: defaultdict[str, dict[Side, LevelHeap]] = defaultdict(lambda: {Side.BUY: [], Side.SELL: []})
+        self.level_map: defaultdict[str, dict[Side, dict[Price, Level]]] = defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
         self.order_map: dict[int, Order] = {}
 
     def fill(
@@ -175,7 +191,7 @@ class Book:
         :param symbol: order symbol
         :param side: order side
         :param price: order price
-        :returns: price level (collections.deque[Order])
+        :returns: price level (OrderQueue)
         """
         return self.level_map[symbol][side].get(price, None)
 
@@ -195,10 +211,10 @@ class Book:
             pq.heappush(self.levels[order.symbol][order.side], level)
             # add level reference to level map
             self.level_map[order.symbol][order.side][order.price] = level
-        level.orders.append(order)
+        level.orders.append_order(order)
         self.order_map[order.id] = order
 
-    def flush_order(self, order: Order, orders_at_level: deque[Order]) -> None:
+    def flush_order(self, order: Order, orders_at_level: OrderQueue) -> None:
         """Flush cancelled or filled standing order from price level and order map when
         order is encountered during order matching.
         :param order: order to cancel
@@ -206,7 +222,7 @@ class Book:
         :returns: None
         """
         logger.debug("Flushing Order Id: %s from book: %s", order.id)
-        orders_at_level.popleft()
+        orders_at_level.pop(order.id)
         self.order_map.pop(order.id)
 
     def flush_price_level(self, symbol: Symbol, level: Level) -> None:
@@ -242,7 +258,7 @@ class Book:
             if not price_comparator(incoming_order.price, price_at_level):
                 break
             while incoming_order.quantity and orders_at_level:
-                best_standing_order = orders_at_level[0]
+                best_standing_order = orders_at_level.peek()
                 if best_standing_order.is_cancelled:
                     self.flush_order(best_standing_order, orders_at_level)
                     continue
