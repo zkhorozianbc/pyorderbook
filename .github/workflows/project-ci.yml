@@ -40,6 +40,7 @@ jobs:
           uv build
       - name: Publish to TestPyPI
         env:
-          UV_PUBLISH_TOKEN: ${{secrets.TESTPYPI_TOKEN}}
+          UV_INDEX_TESTPYPI_USERNAME: __token__
+          UV_INDEX_TESTPYPI_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
         run: |-
           uv publish --publish-url "https://test.pypi.org/legacy/"
