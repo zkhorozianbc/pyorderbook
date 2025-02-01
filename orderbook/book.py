@@ -1,10 +1,14 @@
+import heapq as pq
+import logging
 from collections import defaultdict
 from decimal import Decimal
-import logging
-import heapq as pq
+
 from orderbook.level import PriceLevel
-from orderbook.order import Order, Side
-from orderbook.transaction import Transaction, TransactionSummary
+from orderbook.order import Order
+from orderbook.order import Side
+from orderbook.transaction import Transaction
+from orderbook.transaction import TransactionSummary
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -12,13 +16,6 @@ logger = logging.getLogger(__name__)
 type Symbol = str
 type Price = Decimal
 type PriceLevelHeap = list[PriceLevel]
-
-
-
-
-
-
-
 
 
 class Book:
@@ -31,8 +28,8 @@ class Book:
         self.levels: defaultdict[str, dict[Side, PriceLevelHeap]] = defaultdict(
             lambda: {Side.BUY: [], Side.SELL: []}
         )
-        self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = (
-            defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
+        self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = defaultdict(
+            lambda: {Side.BUY: {}, Side.SELL: {}}
         )
         self.order_map: dict[int, Order] = {}
 
@@ -52,9 +49,7 @@ class Book:
         matched_quantity: int = min(standing_order.quantity, incoming_order.quantity)
         standing_order.quantity -= matched_quantity
         incoming_order.quantity -= matched_quantity
-        fill_price = incoming_order.side.calc_fill_price(
-            incoming_order.price, standing_order.price
-        )
+        fill_price = incoming_order.side.calc_fill_price(incoming_order.price, standing_order.price)
         transaction = Transaction(
             incoming_order.id, standing_order.id, matched_quantity, fill_price
         )
@@ -106,9 +101,7 @@ class Book:
                 break
             while incoming_order.quantity and level.orders:
                 best_standing_order = level.orders.peek()
-                transaction: Transaction = self.fill(
-                    incoming_order, best_standing_order
-                )
+                transaction: Transaction = self.fill(incoming_order, best_standing_order)
                 transactions.append(transaction)
                 if not best_standing_order.quantity:
                     logger.debug(

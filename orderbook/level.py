@@ -1,8 +1,12 @@
-from dataclasses import dataclass, field
-from orderbook.order import OrderQueue, Order, Side
+from dataclasses import dataclass
+from dataclasses import field
 from decimal import Decimal
 
+from orderbook.order import OrderQueue
+from orderbook.order import Side
+
 type Price = Decimal
+
 
 @dataclass(order=True)
 class PriceLevel:

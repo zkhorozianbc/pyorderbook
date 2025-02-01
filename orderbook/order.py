@@ -1,11 +1,14 @@
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
+from dataclasses import field
 from decimal import Decimal
-from enum import StrEnum, auto
-from typing import Callable
+from enum import StrEnum
+from enum import auto
 
 type Symbol = str
 type Price = Decimal
 ID_COUNTER: int = 0
+
 
 class Side(StrEnum):
     """Enum to represent BUY or SELL Order"""
@@ -57,6 +60,7 @@ class Order:
         self.price = Decimal(str(self.price))
         # save original quantity for transaction summary
         self.original_quantity = self.quantity
+
 
 class OrderQueue(dict):
     def append_order(self, order: Order) -> None:

@@ -1,5 +1,8 @@
-from orderbook.book import Book, Order, Side
 from decimal import Decimal
+
+from orderbook.book import Book
+from orderbook.book import Order
+from orderbook.book import Side
 
 
 def test_buy():

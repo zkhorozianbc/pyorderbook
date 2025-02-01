@@ -1,4 +1,6 @@
-from orderbook.book import Book, Order, Side
+from orderbook.book import Book
+from orderbook.book import Order
+from orderbook.book import Side
 
 
 def simulate_order_flow():
