@@ -148,3 +148,4 @@ class Book:
                 f"Price Level {order.symbol}:{order.side}:{order.price} doesn't exist!"
             )
         level.orders.pop(order_id)
+        return True

@@ -15,5 +15,5 @@ class PriceLevel:
     orders: OrderQueue = field(default_factory=OrderQueue, compare=False)
     sort_key: Price = field(compare=True, init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.sort_key = self.price * (-1 if self.side == Side.BUY else 1)

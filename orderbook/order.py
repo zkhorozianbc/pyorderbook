@@ -52,7 +52,7 @@ class Order:
     side: Side
     original_quantity: int = field(init=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         global ID_COUNTER
         # increment clock to set new order id
         self.id = (ID_COUNTER := ID_COUNTER + 1)
@@ -62,15 +62,15 @@ class Order:
         self.original_quantity = self.quantity
 
 
-class OrderQueue(dict):
+class OrderQueue(dict[int, Order]):
     def append_order(self, order: Order) -> None:
         self[order.id] = order
 
-    def peek(self):
+    def peek(self) -> Order:
         if not self:
             raise ValueError("Order Queue is Empty!")
         first_key = next(iter(self))
         return self[first_key]
 
-    def popleft(self):
+    def popleft(self) -> None:
         self.pop(self.peek().id)
