@@ -88,8 +88,8 @@ class Book:
         """Main Order procesing function which executes the price-time priority
         matching logic.
         :param incoming_order: incoming order
-        :returns: TransactionSummary object containing transaction metadata on the transactions which
-        occured during the matching process
+        :returns: TransactionSummary object containing transaction metadata on the transactions
+        which occured during the matching process
         """
         logger.info("~~~ Processing order: %s", incoming_order)
         transactions: list[Transaction] = []
@@ -134,7 +134,8 @@ class Book:
         """Cancel Standing Order. Remove order from its price level and delete
         reference in order id map
         :param order_id: id field of Order object
-        :returns: False if order doesn't exist or if it's already cancelled, True if cancelled successfully.
+        :returns: False if order doesn't exist or if it's already cancelled,
+        True if cancelled successfully.
         """
         logger.info("~~~ Processing Cancel Request for Order Id", order_id)
         order = self.order_map.pop(order_id, None)
