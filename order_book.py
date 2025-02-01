@@ -72,13 +72,16 @@ class Order:
 class OrderQueue(dict):
     def append_order(self, order: Order) -> None:
         self[order.id] = order
+
     def peek(self):
         if not self:
             raise ValueError("Order Queue is Empty!")
         first_key = next(iter(self))
         return self[first_key]
+
     def popleft(self):
         self.pop(self.peek().id)
+
 
 @dataclass(order=True)
 class PriceLevel:
@@ -152,8 +155,12 @@ class Book:
 
     def __init__(self) -> None:
         """Creates required data structures for order matching"""
-        self.levels: defaultdict[str, dict[Side, PriceLevelHeap]] = defaultdict(lambda: {Side.BUY: [], Side.SELL: []})
-        self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
+        self.levels: defaultdict[str, dict[Side, PriceLevelHeap]] = defaultdict(
+            lambda: {Side.BUY: [], Side.SELL: []}
+        )
+        self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = (
+            defaultdict(lambda: {Side.BUY: {}, Side.SELL: {}})
+        )
         self.order_map: dict[int, Order] = {}
 
     def fill(
@@ -209,7 +216,6 @@ class Book:
         level.orders.append_order(order)
         self.order_map[order.id] = order
 
-
     def process_order(self, incoming_order: Order) -> TransactionSummary:
         """Main Order procesing function which executes the price-time priority
         matching logic.
@@ -229,10 +235,15 @@ class Book:
                 break
             while incoming_order.quantity and orders_at_level:
                 best_standing_order = orders_at_level.peek()
-                transaction: Transaction = self.fill(incoming_order, best_standing_order)
+                transaction: Transaction = self.fill(
+                    incoming_order, best_standing_order
+                )
                 transactions.append(transaction)
                 if not best_standing_order.quantity:
-                    logger.debug("Filled standing Order Id: %s from book: %s", best_standing_order.id)
+                    logger.debug(
+                        "Filled standing Order Id: %s from book: %s",
+                        best_standing_order.id,
+                    )
                     orders_at_level.popleft()
                     self.order_map.pop(best_standing_order.id)
 
@@ -256,7 +267,7 @@ class Book:
         return transaction_summary
 
     def cancel_order(self, order_id: int) -> bool:
-        """Cancel Standing Order. Remove order from its price level and delete 
+        """Cancel Standing Order. Remove order from its price level and delete
         reference in order id map
         :param order_id: id field of Order object
         :returns: False if order doesn't exist or if it's already cancelled, True if cancelled successfully.
@@ -268,8 +279,11 @@ class Book:
             return False
         level = self.get_level(order.symbol, order.side, order.price)
         if level is None:
-            raise ValueError(f"Price Level {order.symbol}:{order.side}:{order.price} doesn't exist!")
+            raise ValueError(
+                f"Price Level {order.symbol}:{order.side}:{order.price} doesn't exist!"
+            )
         level.orders.pop(order_id)
+
 
 def simulate_order_flow():
     """Toy order flow simulation. Feel free to experiment and set
