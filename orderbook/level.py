@@ -1,9 +1,7 @@
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from decimal import Decimal
 
-from orderbook.order import OrderQueue
-from orderbook.order import Side
+from orderbook.order import OrderQueue, Side
 
 type Price = Decimal
 

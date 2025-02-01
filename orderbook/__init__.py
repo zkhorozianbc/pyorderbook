@@ -1,5 +1,4 @@
-from importlib.metadata import PackageNotFoundError
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
 try:
     __version__ = version("orderbook")
@@ -8,12 +7,8 @@ except PackageNotFoundError:
 
 from orderbook.book import Book
 from orderbook.level import PriceLevel
-from orderbook.order import Order
-from orderbook.order import OrderQueue
-from orderbook.order import OrderStatus
-from orderbook.order import Side
-from orderbook.transaction import Transaction
-from orderbook.transaction import TransactionSummary
+from orderbook.order import Order, OrderQueue, OrderStatus, Side
+from orderbook.transaction import Transaction, TransactionSummary
 
 __all__ = [
     "Book",
