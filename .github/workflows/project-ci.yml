@@ -12,10 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        python-version:
-          - "3.12"
-          - "3.13"
     name: python
     steps:
       - uses: actions/checkout@v4
@@ -26,7 +22,7 @@ jobs:
       - name: "Set up Python"
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version-file: "pyproject.toml"
       - name: Install the project
         run: uv sync --all-extras --dev
       - name: Run pre-commit
@@ -38,9 +34,10 @@ jobs:
       - name: Build Project
         run: |
           uv build
+          uv lock
       - name: Publish to TestPyPI
         env:
-          UV_PUBLISH_URL: "https://test.pypi.org/legacy/"
+          UV_PUBLISH_URL: https://test.pypi.org/legacy/
           UV_PUBLISH_USERNAME: __token__
           UV_PUBLISH_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
         run: |-
