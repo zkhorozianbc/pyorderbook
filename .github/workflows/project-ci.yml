@@ -35,6 +35,10 @@ jobs:
       - name: Install the project
         run: uv sync --all-extras --dev
 
+      - name: Run pre-commit
+        run: |
+          pre-commit run --all-files
+          
       - name: Run Testing
         run: |
           uv run pytest
