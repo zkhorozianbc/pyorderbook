@@ -70,19 +70,16 @@ class Order:
         self.original_quantity = self.quantity
 
 
-class OrderQueue(LinkedList):
+class OrderQueue(dict):
     def append_order(self, order: Order) -> None:
-        key = order.id
-        value = order
-        node = Node(key=key, val=value)
-        super().append(node)
-
-    def peek(self) -> Order:
-        if self.head is None:
-            raise ValueError("Order Queue is empty!")
-        order_at_head: Order = self.head.val
-        return order_at_head
-
+        self[order.id] = order
+    def peek(self):
+        if not self:
+            raise ValueError("Order Queue is Empty!")
+        first_key = next(iter(self))
+        return self[first_key]
+    def popleft(self):
+        self.pop(self.peek().id)
 
 @dataclass(order=True)
 class PriceLevel:
