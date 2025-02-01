@@ -10,6 +10,7 @@ from orderbook.level import PriceLevel
 from orderbook.order import Order, OrderQueue, OrderStatus, Side
 from orderbook.transaction import Transaction, TransactionSummary
 
+easter_egg = "guidi"
 __all__ = [
     "Book",
     "Order",
@@ -19,4 +20,5 @@ __all__ = [
     "PriceLevel",
     "Transaction",
     "TransactionSummary",
+    "easter_egg",
 ]
