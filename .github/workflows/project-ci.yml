@@ -9,6 +9,7 @@ on:
     branches: ["main"]
 jobs:
   build:
+    environment: CI Environment
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
