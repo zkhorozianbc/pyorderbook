@@ -1,12 +1,28 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "orderbook"
 version = "0.1.0"
-description = "Add your description here"
+description = "Order Book and Matching Engine"
+license = { file = "LICENSE" }
+keywords = ["orderbook","order book", "limit order book", "matching engine"]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
+
+[project.urls]
+Repository = "https://github.com/zkhorozianbc/orderbook"
+[dependency-groups]
+dev =  [
     "black>=24.10.0",
     "mypy>=1.13.0",
     "pytest>=8.3.3",
     "ruff>=0.7.4",
+]
+[tool.hatch.build.targets.wheel]
+packages = ["./orderbook"]
+include = [
+  "limitorderbook/*.py",
+  "test/*.py"
 ]
