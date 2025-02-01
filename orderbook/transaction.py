@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from decimal import Decimal
+from uuid import UUID
 
-from orderbook.order import Order
-from orderbook.order import OrderStatus
+from orderbook.order import Order, OrderStatus
 
 type Price = Decimal
 
@@ -11,8 +11,8 @@ type Price = Decimal
 class Transaction:
     """Stores transaction data for matched orders"""
 
-    incoming_order_id: int
-    standing_order_id: int
+    incoming_order_id: UUID
+    standing_order_id: UUID
     fill_quantity: int
     fill_price: Price
 
@@ -24,7 +24,7 @@ class TransactionSummary:
     including total cost and average price.
     """
 
-    order_id: int
+    order_id: UUID
     filled: OrderStatus
     transactions: list[Transaction]
     num_transactions: int

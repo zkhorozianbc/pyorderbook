@@ -52,9 +52,6 @@ lint.fixable = ["ALL"]           # Allow automatic fixes for all fixable issues
 target-version = "py312"         # Target Python version
 line-length = 100                # Line length for formatting
 
-[tool.ruff.lint.isort]
-force-single-line = true         # One import per line
-
 [tool.mypy]
 ignore_missing_imports = false   # Display error for all missing imports
 strict = true                    # Enable more checks

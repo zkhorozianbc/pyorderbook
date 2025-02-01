@@ -2,12 +2,11 @@ import heapq as pq
 import logging
 from collections import defaultdict
 from decimal import Decimal
+from uuid import UUID
 
 from orderbook.level import PriceLevel
-from orderbook.order import Order
-from orderbook.order import Side
-from orderbook.transaction import Transaction
-from orderbook.transaction import TransactionSummary
+from orderbook.order import Order, Side
+from orderbook.transaction import Transaction, TransactionSummary
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class Book:
         self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = defaultdict(
             lambda: {Side.BUY: {}, Side.SELL: {}}
         )
-        self.order_map: dict[int, Order] = {}
+        self.order_map: dict[UUID, Order] = {}
 
     def fill(
         self,
@@ -130,7 +129,7 @@ class Book:
         logger.info("%s", transaction_summary)
         return transaction_summary
 
-    def cancel_order(self, order_id: int) -> bool:
+    def cancel_order(self, order_id: UUID) -> bool:
         """Cancel Standing Order. Remove order from its price level and delete
         reference in order id map
         :param order_id: id field of Order object

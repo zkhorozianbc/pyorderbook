@@ -1,13 +1,11 @@
 from collections.abc import Callable
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from decimal import Decimal
-from enum import StrEnum
-from enum import auto
+from enum import StrEnum, auto
+from uuid import UUID, uuid4
 
 type Symbol = str
 type Price = Decimal
-ID_COUNTER: int = 0
 
 
 class Side(StrEnum):
@@ -45,7 +43,7 @@ class OrderStatus(StrEnum):
 class Order:
     """Order object"""
 
-    id: int = field(init=False)
+    id: UUID = field(init=False, default_factory=uuid4)
     price: Price
     quantity: int
     symbol: Symbol
@@ -53,16 +51,11 @@ class Order:
     original_quantity: int = field(init=False)
 
     def __post_init__(self) -> None:
-        global ID_COUNTER
-        # increment clock to set new order id
-        self.id = (ID_COUNTER := ID_COUNTER + 1)
-        # handle float to decimal
-        self.price = Decimal(str(self.price))
         # save original quantity for transaction summary
         self.original_quantity = self.quantity
 
 
-class OrderQueue(dict[int, Order]):
+class OrderQueue(dict[UUID, Order]):
     def append_order(self, order: Order) -> None:
         self[order.id] = order
 
