@@ -1,11 +1,10 @@
 from collections import defaultdict
-from dataclasses import dataclass, field
-from enum import StrEnum, auto
 from decimal import Decimal
-from typing import Callable
 import logging
 import heapq as pq
-
+from orderbook.level import PriceLevel
+from orderbook.order import Order, Side
+from orderbook.transaction import Transaction, TransactionSummary
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -14,138 +13,12 @@ type Symbol = str
 type Price = Decimal
 type PriceLevelHeap = list[PriceLevel]
 
-ID_COUNTER: int = 0
 
 
-class Side(StrEnum):
-    """Enum to represent BUY or SELL Order"""
-
-    BUY = auto()
-    SELL = auto()
-
-    @property
-    def other(self) -> "Side":
-        return Side.BUY if self == Side.SELL else Side.SELL
-
-    @property
-    def price_comparator(self) -> Callable[[Price, Price], bool]:
-        if self == Side.BUY:
-            return lambda buy_price, sell_price: buy_price >= sell_price
-        return lambda sell_price, buy_price: sell_price <= buy_price
-
-    @property
-    def calc_fill_price(self) -> Callable[[Price, Price], Price]:
-        if self == Side.BUY:
-            return lambda buy_price, sell_price: min(buy_price, sell_price)
-        return lambda sell_price, buy_price: max(sell_price, buy_price)
 
 
-class OrderStatus(StrEnum):
-    """Enum for Order Status after matching occurs"""
-
-    QUEUED = auto()
-    PARTIAL_FILL = auto()
-    FILLED = auto()
 
 
-@dataclass
-class Order:
-    """Order object"""
-
-    id: int = field(init=False)
-    price: Price
-    quantity: int
-    symbol: Symbol
-    side: Side
-    original_quantity: int = field(init=False)
-
-    def __post_init__(self):
-        global ID_COUNTER
-        # increment clock to set new order id
-        self.id = (ID_COUNTER := ID_COUNTER + 1)
-        # handle float to decimal
-        self.price = Decimal(str(self.price))
-        # save original quantity for transaction summary
-        self.original_quantity = self.quantity
-
-
-class OrderQueue(dict):
-    def append_order(self, order: Order) -> None:
-        self[order.id] = order
-
-    def peek(self):
-        if not self:
-            raise ValueError("Order Queue is Empty!")
-        first_key = next(iter(self))
-        return self[first_key]
-
-    def popleft(self):
-        self.pop(self.peek().id)
-
-
-@dataclass(order=True)
-class PriceLevel:
-    side: Side = field(compare=False)
-    price: Decimal = field(compare=False)
-    orders: OrderQueue = field(default_factory=OrderQueue, compare=False)
-    sort_key: Price = field(compare=True, init=False)
-
-    def __post_init__(self):
-        self.sort_key = self.price * (-1 if self.side == Side.BUY else 1)
-
-
-@dataclass
-class Transaction:
-    """Stores transaction data for matched orders"""
-
-    incoming_order_id: int
-    standing_order_id: int
-    fill_quantity: int
-    fill_price: Price
-
-
-@dataclass
-class TransactionSummary:
-    """Summary statistics return by the Book().process_order function.
-    Displays order status, executed transactions, and order statistics
-    including total cost and average price.
-    """
-
-    order_id: int
-    filled: OrderStatus
-    transactions: list[Transaction]
-    num_transactions: int
-    total_cost: Decimal | None
-    average_price: Decimal | None
-
-    @classmethod
-    def from_order_and_transactions(
-        cls, order: Order, transactions: list[Transaction]
-    ) -> "TransactionSummary":
-        """Class Factory to create transaction summary from incoming order
-        and a list of transactions that occured during the matching process.
-        :param order: incoming order
-        :param transactions: list of transactions that occured during matching
-        :returns: Self
-        """
-        filled: OrderStatus
-        if order.quantity == 0:
-            filled = OrderStatus.FILLED
-        elif order.quantity < order.original_quantity:
-            filled = OrderStatus.PARTIAL_FILL
-        else:
-            filled = OrderStatus.QUEUED
-        if not transactions:
-            return cls(order.id, filled, transactions, 0, None, None)
-        total_cost = Decimal(
-            sum(txn.fill_price * txn.fill_quantity for txn in transactions)
-        )
-        avg_price = Decimal(
-            sum(txn.fill_price for txn in transactions) / len(transactions)
-        )
-        return cls(
-            order.id, filled, transactions, len(transactions), total_cost, avg_price
-        )
 
 
 class Book:
@@ -229,12 +102,10 @@ class Book:
         levels = self.levels[incoming_order.symbol][incoming_order.side.other]
         while incoming_order.quantity and levels:
             level = levels[0]
-            orders_at_level = level.orders
-            price_at_level = level.price
-            if not price_comparator(incoming_order.price, price_at_level):
+            if not price_comparator(incoming_order.price, level.price):
                 break
-            while incoming_order.quantity and orders_at_level:
-                best_standing_order = orders_at_level.peek()
+            while incoming_order.quantity and level.orders:
+                best_standing_order = level.orders.peek()
                 transaction: Transaction = self.fill(
                     incoming_order, best_standing_order
                 )
@@ -244,10 +115,10 @@ class Book:
                         "Filled standing Order Id: %s from book: %s",
                         best_standing_order.id,
                     )
-                    orders_at_level.popleft()
+                    level.orders.popleft()
                     self.order_map.pop(best_standing_order.id)
 
-            if not orders_at_level:
+            if not level.orders:
                 logger.info(
                     "Flushing Price Level for %s at %s price %s",
                     incoming_order.symbol,

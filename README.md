@@ -1,4 +1,4 @@
-### Limit Order Book written in pure Python 3.12
+### Order Book written in pure Python 3.12
 
 - Order matching engine enforcing Price-Time priority
 - Order cancellation

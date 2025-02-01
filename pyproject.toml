@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires =  ["hatchling>=1.0.0"]
 build-backend = "hatchling.build"
 
 [project]
@@ -10,19 +10,51 @@ license = { file = "LICENSE" }
 keywords = ["orderbook","order book", "limit order book", "matching engine"]
 readme = "README.md"
 requires-python = ">=3.12"
-
+authors = [
+{ name = "Zach Khorozian", email = "zkhorozianbc@gmail.com" }
+]
+dependencies = [
+    "pre-commit>=4.1.0",
+]
 [project.urls]
 Repository = "https://github.com/zkhorozianbc/orderbook"
 [dependency-groups]
 dev =  [
-    "black>=24.10.0",
     "mypy>=1.13.0",
     "pytest>=8.3.3",
     "ruff>=0.7.4",
+    "pre-commit>=3.5.0",
 ]
 [tool.hatch.build.targets.wheel]
-packages = ["./orderbook"]
+packages = ["orderbook"]
 include = [
-  "limitorderbook/*.py",
+  "orderbook/*.py",
   "test/*.py"
 ]
+
+
+[tool.ruff]
+lint.select = [    
+ # pycodestyle
+ "E",
+ # Pyflakes
+ "F",
+ # pyupgrade
+ "UP",
+ # flake8-bugbear
+ "B",
+ # flake8-simplify
+ "SIM",
+ # isort
+ "I",]  # Rules to apply
+lint.ignore = []                 # Example of ignoring specific rules
+lint.fixable = ["ALL"]           # Allow automatic fixes for all fixable issues
+target-version = "py312"         # Target Python version
+line-length = 100                # Line length for formatting
+
+[tool.ruff.lint.isort]
+force-single-line = true         # One import per line
+
+[tool.mypy]
+ignore_missing_imports = false   # Display error for all missing imports
+strict = true                    # Enable more checks

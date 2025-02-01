@@ -1,4 +1,4 @@
-from orderbook.orderbook import Book, Order, Side
+from orderbook.book import Book, Order, Side
 from decimal import Decimal
 
 
