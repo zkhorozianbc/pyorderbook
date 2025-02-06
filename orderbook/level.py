@@ -13,4 +13,5 @@ class PriceLevel:
     orders: OrderQueue = field(default_factory=OrderQueue, compare=False)
 
     def __lt__(self, other: "PriceLevel") -> bool:
+        """Buys should be max heap, sells min heap"""
         return self.side.price_comparator(self.price, other.price)
