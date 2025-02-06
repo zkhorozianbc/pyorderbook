@@ -1,3 +1,4 @@
+import operator
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -20,15 +21,11 @@ class Side(StrEnum):
 
     @property
     def price_comparator(self) -> Callable[[Price, Price], bool]:
-        if self == Side.BUY:
-            return lambda buy_price, sell_price: buy_price >= sell_price
-        return lambda sell_price, buy_price: sell_price <= buy_price
+        return operator.le if self == Side.SELL else operator.ge
 
     @property
     def calc_fill_price(self) -> Callable[[Price, Price], Price]:
-        if self == Side.BUY:
-            return lambda buy_price, sell_price: min(buy_price, sell_price)
-        return lambda sell_price, buy_price: max(sell_price, buy_price)
+        return max if self == Side.SELL else min
 
 
 class OrderStatus(StrEnum):
