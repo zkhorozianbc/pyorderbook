@@ -16,12 +16,13 @@ authors = [
 [project.urls]
 Repository = "https://github.com/zkhorozianbc/orderbook"
 [dependency-groups]
-dev =  [
+dev = [
     "pre-commit>=4.1.0",
     "mypy>=1.13.0",
     "pytest>=8.3.3",
     "ruff>=0.7.4",
     "pre-commit>=3.5.0",
+    "toml>=0.10.2",
 ]
 [tool.hatch.build.targets.wheel]
 packages = ["orderbook"]
