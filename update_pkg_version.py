@@ -5,7 +5,7 @@ import toml
 
 
 def increment_version(version_str: str) -> str:
-    major, minor, patch = map(int, version_str.split("."))
+    major, minor, patch = map(int, version_str[1:].split("."))
     patch += 1
     if patch > 9:
         patch = 0
@@ -13,7 +13,7 @@ def increment_version(version_str: str) -> str:
     if minor > 9:
         minor = 0
         major += 1
-    return f"{major}.{minor}.{patch}"
+    return f"v{major}.{minor}.{patch}"
 
 
 def update_versions() -> str:

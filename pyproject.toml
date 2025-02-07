@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orderbook"
-version = "0.3.6"
+version = "v0.3.7"
 description = "Order Book and Matching Engine"
 keywords = [ "orderbook", "order book", "limit order book", "matching engine",]
 readme = "README.md"
