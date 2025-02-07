@@ -1,56 +1,51 @@
 [build-system]
-requires =  ["hatchling>=1.0.0"]
+requires = [ "hatchling>=1.0.0",]
 build-backend = "hatchling.build"
 
 [project]
 name = "orderbook"
-version = "0.3.2"
+version = "0.3.5"
 description = "Order Book and Matching Engine"
-license = { file = "LICENSE" }
-keywords = ["orderbook","order book", "limit order book", "matching engine"]
+keywords = [ "orderbook", "order book", "limit order book", "matching engine",]
 readme = "README.md"
 requires-python = ">=3.12"
-authors = [
-{ name = "Zach Khorozian", email = "zkhorozianbc@gmail.com" }
-]
-[project.urls]
-Repository = "https://github.com/zkhorozianbc/orderbook"
+[[project.authors]]
+name = "Zach Khorozian"
+email = "zkhorozianbc@gmail.com"
+
 [dependency-groups]
 dev = [
-    "pre-commit>=4.1.0",
-    "mypy>=1.13.0",
-    "pytest>=8.3.3",
-    "ruff>=0.7.4",
-    "pre-commit>=3.5.0",
-    "toml>=0.10.2",
-]
-[tool.hatch.build.targets.wheel]
-packages = ["orderbook"]
-include = [
-  "orderbook/*.py",
-  "test/*.py"
+ "pre-commit>=4.1.0",
+ "mypy>=1.13.0",
+ "pytest>=8.3.3",
+ "ruff>=0.7.4",
+ "pre-commit>=3.5.0",
+ "toml>=0.10.2",
 ]
 
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Repository = "https://github.com/zkhorozianbc/orderbook"
 
 [tool.ruff]
-lint.select = [    
- # pycodestyle
- "E",
- # Pyflakes
- "F",
- # pyupgrade
- "UP",
- # flake8-bugbear
- "B",
- # flake8-simplify
- "SIM",
- # isort
- "I",]  # Rules to apply
-lint.ignore = []                 # Example of ignoring specific rules
-lint.fixable = ["ALL"]           # Allow automatic fixes for all fixable issues
-target-version = "py312"         # Target Python version
-line-length = 100                # Line length for formatting
+target-version = "py312"
+line-length = 100
 
 [tool.mypy]
-ignore_missing_imports = false   # Display error for all missing imports
-strict = true                    # Enable more checks
+ignore_missing_imports = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = "toml"
+ignore_missing_imports = true
+
+[tool.ruff.lint]
+select = [ "E", "F", "UP", "B", "SIM", "I",]
+ignore = []
+fixable = [ "ALL",]
+
+[tool.hatch.build.targets.wheel]
+packages = [ "orderbook",]
+include = [ "orderbook/*.py", "test/*.py",]
