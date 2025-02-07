@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "orderbook"
-version = "0.3.5"
+version = "0.3.6"
 description = "Order Book and Matching Engine"
 keywords = [ "orderbook", "order book", "limit order book", "matching engine",]
 readme = "README.md"
@@ -14,14 +14,7 @@ name = "Zach Khorozian"
 email = "zkhorozianbc@gmail.com"
 
 [dependency-groups]
-dev = [
- "pre-commit>=4.1.0",
- "mypy>=1.13.0",
- "pytest>=8.3.3",
- "ruff>=0.7.4",
- "pre-commit>=3.5.0",
- "toml>=0.10.2",
-]
+dev = [ "pre-commit>=4.1.0", "mypy>=1.13.0", "pytest>=8.3.3", "ruff>=0.7.4", "pre-commit>=3.5.0", "toml>=0.10.2",]
 
 [project.license]
 file = "LICENSE"
@@ -36,7 +29,6 @@ line-length = 100
 [tool.mypy]
 ignore_missing_imports = true
 strict = true
-
 [[tool.mypy.overrides]]
 module = "toml"
 ignore_missing_imports = true
