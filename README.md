@@ -26,14 +26,6 @@ transaction_summary = book.process_order(Order(Decimal("54.3"), 140, "IBM", Side
 print(transaction_summary)
 ```
 
-## Design
-
-- **Price Levels**: Stored in a heap of dataclasses, each with a price attribute and orders attribute. Orders are stored in a dictionary within each price level. New price levels are created when an unseen price is received for a symbol/side, and standing price levels are deleted when there are no more orders in the queue at that price level.
-- **Order Queueing**: Unfilled orders are enqueued to the tail of the corresponding symbol/side/price queue, maintaining insertion order.
-- **Matching Logic**: Iterates through the price level heap (descending order for buys, ascending for sells) and dequeues from the head of each matching price level until the level or incoming order quantity is exhausted.
-- **Order Cancellation**: Uses a reference map from order ID to its encompassing price level. The order is popped from the price level and the reference map.
-- **Precision**: Uses `decimal.Decimal` objects to store prices to avoid floating point arithmetic problems.
-
 ## System Requirements
 
 - Python 3.12
@@ -51,3 +43,11 @@ uv pip install orderbook
 # or 
 uv add orderbook
 ```
+
+## Design
+
+- **Price Levels**: Stored in a heap of dataclasses, each with a price attribute and orders attribute. Orders are stored in a dictionary within each price level. New price levels are created when an unseen price is received for a symbol/side, and standing price levels are deleted when there are no more orders in the queue at that price level.
+- **Order Queueing**: Unfilled orders are enqueued to the tail of the corresponding symbol/side/price queue, maintaining insertion order.
+- **Matching Logic**: Iterates through the price level heap (descending order for buys, ascending for sells) and dequeues from the head of each matching price level until the level or incoming order quantity is exhausted.
+- **Order Cancellation**: Uses a reference map from order ID to its encompassing price level. The order is popped from the price level and the reference map.
+- **Precision**: Uses `decimal.Decimal` objects to store prices to avoid floating point arithmetic problems.
