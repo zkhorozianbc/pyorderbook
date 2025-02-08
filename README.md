@@ -20,7 +20,7 @@ book = Book()
 # Process some orders
 book.process_order(Order(Decimal("3.5"), 70, "IBM", Side.SELL))
 book.process_order(Order(Decimal("3.6"), 70, "IBM", Side.SELL))
-transaction_summary = book.process_order(Order(Decimal("54.3"), 140, "IBM", Side.BUY))
+transaction_summary = book.process_order(Order(Decimal("3.55"), 100, "IBM", Side.BUY))
 
 # Print transaction summary
 print(transaction_summary)
