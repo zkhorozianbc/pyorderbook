@@ -1,12 +1,12 @@
 # Order Book
 
-Order Book is a pure Python 3.12 implementation of an order matching engine that enforces Price-Time priority. It supports order matching, order cancellation, and provides detailed transaction summaries.
+Order Book is a pure Python implementation of an order matching engine that enforces Price-Time priority. It provides order matching, order cancellation and detailed transaction summaries.
 
 ## Features
 
-- **Order Matching Engine**: Enforces Price-Time priority for matching orders.
-- **Order Cancellation**: Allows cancellation of standing orders.
-- **Detailed Transaction Summaries**: Provides comprehensive details of transactions.
+- **Order Matching Engine**
+- **Order Cancellation**
+- **Detailed Transaction Summaries**
 
 ## Usage
 

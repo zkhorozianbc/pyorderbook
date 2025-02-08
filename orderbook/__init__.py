@@ -3,7 +3,7 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("orderbook")
 except PackageNotFoundError:
-    __version__ = "v0.3.7"
+    __version__ = "v0.3.8"
 
 from orderbook.book import Book
 from orderbook.level import PriceLevel
