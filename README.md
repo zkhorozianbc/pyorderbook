@@ -26,11 +26,6 @@ transaction_summary = book.process_order(Order(Decimal("54.3"), 140, "IBM", Side
 print(transaction_summary)
 ```
 
-## System Requirements
-
-- Python 3.12
-- [uv](https://github.com/astral-sh/uv)
-
 ## Installation
 
 To install the package, use:
@@ -43,6 +38,10 @@ uv pip install orderbook
 # or 
 uv add orderbook
 ```
+
+## System Requirements
+- Python 3.12+
+
 
 ## Design
 
