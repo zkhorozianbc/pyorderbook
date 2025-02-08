@@ -8,6 +8,24 @@ Order Book is a pure Python 3.12 implementation of an order matching engine that
 - **Order Cancellation**: Allows cancellation of standing orders.
 - **Detailed Transaction Summaries**: Provides comprehensive details of transactions.
 
+## Usage
+
+```python
+from decimal import Decimal
+from orderbook import Book, Order, Side
+
+# Create a new order book
+book = Book()
+
+# Process some orders
+book.process_order(Order(Decimal("3.5"), 70, "IBM", Side.SELL))
+book.process_order(Order(Decimal("3.6"), 70, "IBM", Side.SELL))
+transaction_summary = book.process_order(Order(Decimal("54.3"), 140, "IBM", Side.BUY))
+
+# Print transaction summary
+print(transaction_summary)
+```
+
 ## Design
 
 - **Price Levels**: Stored in a heap of dataclasses, each with a price attribute and orders attribute. Orders are stored in a dictionary within each price level. New price levels are created when an unseen price is received for a symbol/side, and standing price levels are deleted when there are no more orders in the queue at that price level.
@@ -32,22 +50,4 @@ pip install orderbook
 uv pip install orderbook
 # or 
 uv add orderbook
-```
-
-## Usage
-
-```python
-from decimal import Decimal
-from orderbook import Book, Order, Side
-
-# Create a new order book
-book = Book()
-
-# Process some orders
-book.process_order(Order(Decimal("3.5"), 70, "IBM", Side.SELL))
-book.process_order(Order(Decimal("3.6"), 70, "IBM", Side.SELL))
-transaction_summary = book.process_order(Order(Decimal("54.3"), 140, "IBM", Side.BUY))
-
-# Print transaction summary
-print(transaction_summary)
 ```
