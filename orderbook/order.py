@@ -17,14 +17,22 @@ class Side(StrEnum):
 
     @property
     def other(self) -> "Side":
+        """Return the opposite side of the order"""
         return Side.BUY if self == Side.SELL else Side.SELL
 
     @property
     def price_comparator(self) -> Callable[[Price, Price], bool]:
+        """Return the price comparator function for the side.
+        Best price for BUY is the lowest price, and vice versa for SELL.
+        """
         return operator.le if self == Side.SELL else operator.ge
 
     @property
     def calc_fill_price(self) -> Callable[[Price, Price], Price]:
+        """Return the fill price calculation function for the side.
+        For BUY, the fill price is the max of the two prices.
+        For SELL, the fill price is the min of the two prices.
+        """
         return max if self == Side.SELL else min
 
 
