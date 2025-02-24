@@ -4,6 +4,7 @@ from decimal import Decimal
 from enum import StrEnum, auto
 from uuid import UUID, uuid4
 from functools import partial
+
 type Symbol = str
 type Price = Decimal
 
@@ -45,12 +46,13 @@ class OrderStatus(StrEnum):
 
 class Order:
     def __init__(self, side: Side, symbol: Symbol, price: float, quantity: int) -> None:
-        self.id = uuid4()
+        self.id: UUID = uuid4()
         self.price: Price = Decimal(str(price))
-        self.quantity = quantity
-        self.symbol = symbol
-        self.side = side
-        self.original_quantity = quantity
+        self.quantity: int = quantity
+        self.symbol: Symbol = symbol
+        self.side: Side = side
+        self.original_quantity: int = quantity
+
 
 bid = partial(Order, Side.BID)
 ask = partial(Order, Side.ASK)

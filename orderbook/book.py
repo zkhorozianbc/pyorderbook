@@ -98,7 +98,7 @@ class Book:
         if isinstance(orders, Order):
             return [self._match(orders)]
         return [self._match(order) for order in orders]
-    
+
     def _match(self, incoming_order: Order) -> TransactionSummary:
         """Main Order procesing function which executes the price-time priority
         matching logic.
@@ -145,7 +145,7 @@ class Book:
         logger.info("%s", transaction_summary)
         return transaction_summary
 
-    def cancel(self, order: Order) -> bool:
+    def cancel(self, order: Order) -> None:
         """Cancel Standing Order. Remove order from its price level and delete
         reference in order id map
         :param order_id: id field of Order object
@@ -154,14 +154,15 @@ class Book:
         """
         order_id = order.id
         logger.info("~~~ Processing Cancel Request for Order Id", order_id)
-        order = self.order_map.pop(order_id, None)
-        if order is None:
+        try:
+            self.order_map.pop(order.id)
+        except KeyError:
             logger.error("Order %s doesnt exist", order_id)
-            return False
+            raise
+
         level = self.get_level(order.symbol, order.side, order.price)
         if level is None:
             raise ValueError(
                 f"Price Level {order.symbol}:{order.side}:{order.price} doesn't exist!"
             )
         level.orders.pop(order_id)
-        return True

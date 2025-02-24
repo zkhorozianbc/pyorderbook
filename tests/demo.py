@@ -12,5 +12,6 @@ def simulate_order_flow() -> None:
     txn_summary = book.match(bid("GOOG", 3.7, 70))
     print(txn_summary)
 
+
 if __name__ == "__main__":
     simulate_order_flow()

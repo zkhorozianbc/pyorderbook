@@ -50,8 +50,8 @@ class TransactionSummary:
             filled = OrderStatus.QUEUED
         if not transactions:
             return cls(order.id, filled, transactions, 0, None, None)
-        total_cost = round(float(sum(txn.fill_price * txn.fill_quantity for txn in transactions)), 2)
-        avg_price = round(float(
-            sum(txn.fill_price for txn in transactions) / len(transactions)
-        ), 2)
+        total_cost = round(
+            float(sum(txn.fill_price * txn.fill_quantity for txn in transactions)), 2
+        )
+        avg_price = round(float(sum(txn.fill_price for txn in transactions) / len(transactions)), 2)
         return cls(order.id, filled, transactions, len(transactions), total_cost, avg_price)
