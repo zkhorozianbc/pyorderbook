@@ -25,10 +25,10 @@ class Book:
     def __init__(self) -> None:
         """Creates required data structures for order matching"""
         self.levels: defaultdict[str, dict[Side, PriceLevelHeap]] = defaultdict(
-            lambda: {Side.BUY: [], Side.SELL: []}
+            lambda: {Side.BID: [], Side.ASK: []}
         )
         self.level_map: defaultdict[str, dict[Side, dict[Price, PriceLevel]]] = defaultdict(
-            lambda: {Side.BUY: {}, Side.SELL: {}}
+            lambda: {Side.BID: {}, Side.ASK: {}}
         )
         self.order_map: dict[UUID, Order] = {}
 
@@ -83,7 +83,23 @@ class Book:
         level.orders.append_order(order)
         self.order_map[order.id] = order
 
-    def process_order(self, incoming_order: Order) -> TransactionSummary:
+    def get_order(self, order_id: UUID) -> Order | None:
+        """Return order object from order id
+        :param order_id: id field of Order object
+        :returns: Order object
+        """
+        return self.order_map.get(order_id, None)
+
+    def match(self, orders: list[Order] | Order) -> list[TransactionSummary]:
+        """Match incoming orders to standing orders in the book
+        :param orders: list of incoming orders
+        :returns: list of TransactionSummary objects containing transaction metadata
+        """
+        if isinstance(orders, Order):
+            return [self._match(orders)]
+        return [self._match(order) for order in orders]
+    
+    def _match(self, incoming_order: Order) -> TransactionSummary:
         """Main Order procesing function which executes the price-time priority
         matching logic.
         :param incoming_order: incoming order
@@ -129,13 +145,14 @@ class Book:
         logger.info("%s", transaction_summary)
         return transaction_summary
 
-    def cancel_order(self, order_id: UUID) -> bool:
+    def cancel(self, order: Order) -> bool:
         """Cancel Standing Order. Remove order from its price level and delete
         reference in order id map
         :param order_id: id field of Order object
         :returns: False if order doesn't exist or if it's already cancelled,
         True if cancelled successfully.
         """
+        order_id = order.id
         logger.info("~~~ Processing Cancel Request for Order Id", order_id)
         order = self.order_map.pop(order_id, None)
         if order is None:

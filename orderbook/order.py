@@ -1,39 +1,38 @@
 import operator
 from collections.abc import Callable
-from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum, auto
 from uuid import UUID, uuid4
-
+from functools import partial
 type Symbol = str
 type Price = Decimal
 
 
 class Side(StrEnum):
-    """Enum to represent BUY or SELL Order"""
+    """Enum to represent BID or ASK Order"""
 
-    BUY = auto()
-    SELL = auto()
+    BID = auto()
+    ASK = auto()
 
     @property
     def other(self) -> "Side":
         """Return the opposite side of the order"""
-        return Side.BUY if self == Side.SELL else Side.SELL
+        return Side.BID if self == Side.ASK else Side.ASK
 
     @property
     def price_comparator(self) -> Callable[[Price, Price], bool]:
         """Return the price comparator function for the side.
-        Best price for BUY is the lowest price, and vice versa for SELL.
+        Best price for BID is the lowest price, and vice versa for ASK.
         """
-        return operator.le if self == Side.SELL else operator.ge
+        return operator.le if self == Side.ASK else operator.ge
 
     @property
     def calc_fill_price(self) -> Callable[[Price, Price], Price]:
         """Return the fill price calculation function for the side.
-        For BUY, the fill price is the max of the two prices.
-        For SELL, the fill price is the min of the two prices.
+        For BID, the fill price is the max of the two prices.
+        For ASK, the fill price is the min of the two prices.
         """
-        return max if self == Side.SELL else min
+        return max if self == Side.ASK else min
 
 
 class OrderStatus(StrEnum):
@@ -44,20 +43,17 @@ class OrderStatus(StrEnum):
     FILLED = auto()
 
 
-@dataclass
 class Order:
-    """Order object"""
+    def __init__(self, side: Side, symbol: Symbol, price: float, quantity: int) -> None:
+        self.id = uuid4()
+        self.price: Price = Decimal(str(price))
+        self.quantity = quantity
+        self.symbol = symbol
+        self.side = side
+        self.original_quantity = quantity
 
-    id: UUID = field(init=False, default_factory=uuid4)
-    price: Price
-    quantity: int
-    symbol: Symbol
-    side: Side
-    original_quantity: int = field(init=False)
-
-    def __post_init__(self) -> None:
-        # save original quantity for transaction summary
-        self.original_quantity = self.quantity
+bid = partial(Order, Side.BID)
+ask = partial(Order, Side.ASK)
 
 
 class OrderQueue(dict[UUID, Order]):
