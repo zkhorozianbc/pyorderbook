@@ -9,8 +9,8 @@ def simulate_order_flow() -> None:
     book = Book()
     book.match(ask("GOOG", 3.6, 70))
     book.match(ask("GOOG", 3.5, 70))
-    txn_summary = book.match(bid("GOOG", 3.7, 70))
-    print(txn_summary)
+    blotter = book.match(bid("GOOG", 3.7, 70))
+    print(blotter)
 
 
 if __name__ == "__main__":

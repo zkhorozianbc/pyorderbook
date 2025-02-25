@@ -46,12 +46,22 @@ class OrderStatus(StrEnum):
 
 class Order:
     def __init__(self, side: Side, symbol: Symbol, price: float, quantity: int) -> None:
+        if quantity <= 0:
+            raise ValueError("Order quantity must be greater than zero")
         self.id: UUID = uuid4()
         self.price: Price = Decimal(str(price))
         self.quantity: int = quantity
         self.symbol: Symbol = symbol
         self.side: Side = side
         self.original_quantity: int = quantity
+
+    @property
+    def status(self) -> OrderStatus:
+        if self.quantity == 0:
+            return OrderStatus.FILLED
+        elif self.quantity < self.original_quantity:
+            return OrderStatus.PARTIAL_FILL
+        return OrderStatus.QUEUED
 
 
 bid = partial(Order, Side.BID)

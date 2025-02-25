@@ -8,17 +8,19 @@ except PackageNotFoundError:
 from orderbook.book import Book
 from orderbook.level import PriceLevel
 from orderbook.order import Order, OrderQueue, OrderStatus, Side, ask, bid
-from orderbook.transaction import Transaction, TransactionSummary
+from orderbook.trade_blotter import Trade, TradeBlotter
 
 easter_egg = "artificial lake"
 __all__ = [
     "Book",
     "Order",
+    "bid",
+    "ask",
     "OrderQueue",
     "OrderStatus",
     "Side",
     "PriceLevel",
-    "Transaction",
-    "TransactionSummary",
+    "Trade",
+    "TradeBlotter",
     "easter_egg",
 ]
