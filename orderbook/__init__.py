@@ -13,9 +13,9 @@ from orderbook.trade_blotter import Trade, TradeBlotter
 easter_egg = "artificial lake"
 __all__ = [
     "Book",
-    "Order",
     "bid",
     "ask",
+    "Order",
     "OrderQueue",
     "OrderStatus",
     "Side",
