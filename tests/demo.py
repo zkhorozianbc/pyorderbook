@@ -1,3 +1,5 @@
+"""Toy order flow simulation"""
+
 import pprint
 
 from pyorderbook import Book, ask, bid
