@@ -1,14 +1,12 @@
+import pprint
+
 from pyorderbook import Book, ask, bid
 
 
 def simulate_order_flow() -> None:
-    """Toy order flow simulation. Feel free to experiment and set
-    your desired log level at the top of the file!"""
+    """Toy order flow simulation"""
     book = Book()
-    book.match(ask("GOOG", 3.6, 70))
-    book.match(ask("GOOG", 3.5, 70))
-    blotter = book.match(bid("GOOG", 3.7, 70))
-    print(blotter)
+    pprint.pprint(book.match([ask("GOOG", 3.5, 25), ask("GOOG", 3.6, 75), bid("GOOG", 3.7, 100)]))
 
 
 if __name__ == "__main__":

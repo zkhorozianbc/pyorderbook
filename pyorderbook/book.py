@@ -57,7 +57,7 @@ class Book:
         :returns: TradeBlotter object containing trade metadata on the trades
         which occured during the matching process
         """
-        logger.info("~~~ Processing order: %s", incoming_order)
+        logger.debug("~~~ Processing order: %s", incoming_order)
         trades: list[Trade] = []
         price_comparator = incoming_order.side.price_comparator
         levels = self.levels[incoming_order.symbol][incoming_order.side.other]
@@ -78,7 +78,7 @@ class Book:
                     self.order_map.pop(best_standing_order.id)
 
             if not level.orders:
-                logger.info(
+                logger.debug(
                     "Flushing Price Level for %s at %s price %s",
                     incoming_order.symbol,
                     str(level.side),
@@ -91,7 +91,7 @@ class Book:
             self.enqueue_order(incoming_order)
 
         trade_blotter = TradeBlotter(incoming_order, trades)
-        logger.info("%s", trade_blotter)
+        logger.debug("%s", trade_blotter)
         return trade_blotter
 
     def cancel(self, order: Order) -> None:
@@ -102,7 +102,7 @@ class Book:
         True if cancelled successfully.
         """
         order_id = order.id
-        logger.info("~~~ Processing Cancel Request for Order Id", order_id)
+        logger.debug("~~~ Processing Cancel Request for Order Id", order_id)
         try:
             self.order_map.pop(order.id)
         except KeyError:
@@ -134,7 +134,7 @@ class Book:
         incoming_order.quantity -= matched_quantity
         fill_price = incoming_order.side.calc_fill_price(incoming_order.price, standing_order.price)
         trade = Trade(incoming_order.id, standing_order.id, matched_quantity, fill_price)
-        logger.info("Filled Order: %s", trade)
+        logger.debug("Filled Order: %s", trade)
         return trade
 
     def get_level(self, symbol: str, side: Side, price: Decimal) -> PriceLevel | None:
@@ -153,7 +153,7 @@ class Book:
         :param order: order to add to book
         :returns: None
         """
-        logger.info("Adding Order to book: %s", order)
+        logger.debug("Adding Order to book: %s", order)
         level = self.get_level(order.symbol, order.side, order.price)
         if level is None:
             # create price level
