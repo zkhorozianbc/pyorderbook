@@ -1,5 +1,5 @@
 # Order Book
-[![CI Status](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/Project%20CI%20File.yml/badge.svg)](https://github.com/zkhorozianbc/pyorderbook/actions)
+[![Project CI](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml/badge.svg)](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
 [![License](https://img.shields.io/github/license/zkhorozianbc/pyorderbook.svg)](https://github.com/zkhorozianbc/pyorderbook/blob/main/LICENSE)
