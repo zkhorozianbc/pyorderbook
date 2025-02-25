@@ -12,7 +12,7 @@ def test_ask() -> None:
     book = Book()
     blotters = book.match([bid("GOOG", 3.5, 70), bid("GOOG", 3.6, 70), ask("GOOG", 54.3, 140)])
     assert len(blotters[2].trades) == 0
-    assert blotters[2].average_price is None
+    assert blotters[2].average_price == 0
     blotter = book.match(ask("GOOG", 3.1, 140))
     assert len(blotter.trades) == 2
     assert blotter.average_price == 3.55
