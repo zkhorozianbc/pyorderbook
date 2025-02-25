@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pyorderbook"
-version = "v0.4.4"
+version = "v0.4.5"
 description = "Order Book and Matching Engine"
-keywords = [ "orderbook","pyorderbook", "order book", "limit order book", "matching engine",]
+keywords = [ "orderbook", "pyorderbook", "order book", "limit order book", "matching engine",]
 readme = "README.md"
 requires-python = ">=3.11"
 [[project.authors]]
@@ -20,7 +20,7 @@ dev = [ "pre-commit>=4.1.0", "mypy>=1.13.0", "pytest>=8.3.3", "ruff>=0.7.4", "pr
 file = "LICENSE"
 
 [project.urls]
-Repository = "https://github.com/zkhorozianbc/orderbook"
+Repository = "https://github.com/zkhorozianbc/pyorderbook"
 
 [tool.ruff]
 target-version = "py311"
