@@ -1,4 +1,4 @@
-from orderbook import Book, ask, bid
+from pyorderbook import Book, ask, bid
 
 
 def simulate_order_flow() -> None:

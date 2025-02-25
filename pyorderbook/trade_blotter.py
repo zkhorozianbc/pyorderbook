@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import TypeAlias
 from uuid import UUID
 
-from orderbook.order import Order
+from pyorderbook.order import Order
 
 Price: TypeAlias = Decimal
 

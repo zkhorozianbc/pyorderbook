@@ -11,7 +11,7 @@ Order Book is a pure Python implementation of an order matching engine that enfo
 ## Usage
 
 ```python
-from orderbook import Book, bid, ask
+from pyorderbook import Book, bid, ask
 
 # Create a new order book
 book = Book()
@@ -31,11 +31,11 @@ To install the package, use:
 
 ```sh
 # pip
-pip install orderbook
+pip install pyorderbook
 # uv
-uv pip install orderbook
+uv pip install pyorderbook
 # or 
-uv add orderbook
+uv add pyorderbook
 ```
 
 ## System Requirements

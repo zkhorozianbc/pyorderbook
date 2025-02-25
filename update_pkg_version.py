@@ -19,7 +19,7 @@ def increment_version(version_str: str) -> str:
 def update_versions() -> str:
     repo_root = Path(__file__).parent
     pyproject_path = repo_root / "pyproject.toml"
-    init_path = repo_root / "orderbook" / "__init__.py"
+    init_path = repo_root / "pyorderbook" / "__init__.py"
 
     pyproject = toml.load(pyproject_path)
     current_version = pyproject["project"]["version"]

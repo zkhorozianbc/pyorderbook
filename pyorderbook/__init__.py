@@ -1,14 +1,14 @@
 from importlib.metadata import PackageNotFoundError, version
 
 try:
-    __version__ = version("orderbook")
+    __version__ = version("pyorderbook")
 except PackageNotFoundError:
     __version__ = "v0.4.4"
 
-from orderbook.book import Book
-from orderbook.level import PriceLevel
-from orderbook.order import Order, OrderQueue, OrderStatus, Side, ask, bid
-from orderbook.trade_blotter import Trade, TradeBlotter
+from pyorderbook.book import Book
+from pyorderbook.level import PriceLevel
+from pyorderbook.order import Order, OrderQueue, OrderStatus, Side, ask, bid
+from pyorderbook.trade_blotter import Trade, TradeBlotter
 
 easter_egg = "artificial lake"
 __all__ = [

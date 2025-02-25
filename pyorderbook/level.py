@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import TypeAlias
 
-from orderbook.order import OrderQueue, Side
+from pyorderbook.order import OrderQueue, Side
 
 Price: TypeAlias = Decimal
 

@@ -1,4 +1,4 @@
-from orderbook import Book, ask, bid
+from pyorderbook import Book, ask, bid
 
 
 def test_bid() -> None:
