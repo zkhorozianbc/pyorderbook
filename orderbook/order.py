@@ -4,10 +4,10 @@ from decimal import Decimal
 from enum import StrEnum, auto
 from uuid import UUID, uuid4
 from functools import partial
+from typing import TypeAlias
 
-type Symbol = str
-type Price = Decimal
-
+Symbol: TypeAlias = str
+Price: TypeAlias = Decimal
 
 class Side(StrEnum):
     """Enum to represent BID or ASK Order"""

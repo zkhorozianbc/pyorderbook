@@ -39,7 +39,7 @@ uv add orderbook
 ```
 
 ## System Requirements
-- Python 3.12+
+- Python 3.11+
 
 
 ## Design

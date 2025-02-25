@@ -6,15 +6,15 @@ from uuid import UUID
 from orderbook.level import PriceLevel
 from orderbook.order import Order, Side
 from orderbook.trade_blotter import Trade, TradeBlotter
-from typing import overload
+from typing import overload, TypeAlias
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+Symbol: TypeAlias = str
+Price: TypeAlias = Decimal
+PriceLevelHeap: TypeAlias = list[PriceLevel]
 
-type Symbol = str
-type Price = Decimal
-type PriceLevelHeap = list[PriceLevel]
 
 
 class Book:

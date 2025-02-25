@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 from uuid import UUID
+from typing import TypeAlias
+from orderbook.order import Order
 
-from orderbook.order import Order, OrderStatus
-
-type Price = Decimal
+Price: TypeAlias = Decimal
 
 
 @dataclass
@@ -27,8 +27,8 @@ class TradeBlotter:
     order: Order
     trades: list[Trade]
     num_trades: int = field(default=0, init=False)
-    total_cost: float | None = field(default=None, init=False)
-    average_price: float | None = field(default=None, init=False)
+    total_cost: float = field(default=0, init=False)
+    average_price: float = field(default=0, init=False)
 
     def __post_init__(self) -> None:
         if self.trades:

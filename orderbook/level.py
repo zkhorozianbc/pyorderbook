@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
 from orderbook.order import OrderQueue, Side
-
-type Price = Decimal
+from typing import TypeAlias
+Price: TypeAlias = Decimal
 
 
 @dataclass
