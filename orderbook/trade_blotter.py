@@ -1,7 +1,8 @@
 from dataclasses import dataclass, field
 from decimal import Decimal
-from uuid import UUID
 from typing import TypeAlias
+from uuid import UUID
+
 from orderbook.order import Order
 
 Price: TypeAlias = Decimal

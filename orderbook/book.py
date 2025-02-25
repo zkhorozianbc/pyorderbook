@@ -2,11 +2,12 @@ import heapq as pq
 import logging
 from collections import defaultdict
 from decimal import Decimal
+from typing import TypeAlias, overload
 from uuid import UUID
+
 from orderbook.level import PriceLevel
 from orderbook.order import Order, Side
 from orderbook.trade_blotter import Trade, TradeBlotter
-from typing import overload, TypeAlias
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -14,7 +15,6 @@ logger = logging.getLogger(__name__)
 Symbol: TypeAlias = str
 Price: TypeAlias = Decimal
 PriceLevelHeap: TypeAlias = list[PriceLevel]
-
 
 
 class Book:
