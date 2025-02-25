@@ -41,6 +41,7 @@ jobs:
           uv build
           uv lock
       - name: Publish to TestPyPI
+        if: startsWith(github.ref, 'refs/tags/test-v')
         env:
           UV_PUBLISH_URL: https://test.pypi.org/legacy/
           UV_PUBLISH_USERNAME: __token__
