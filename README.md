@@ -1,10 +1,10 @@
-# Order Book
+# PyOrderBook
 [![Project CI](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml/badge.svg)](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
 [![License](https://img.shields.io/github/license/zkhorozianbc/pyorderbook.svg)](https://github.com/zkhorozianbc/pyorderbook/blob/main/LICENSE)
 
-Order Book is a pure Python implementation of an order matching engine that enforces Price-Time priority. It provides order matching, order cancellation and detailed trade blotter.
+PyOrderBook is a pure Python implementation of a limit order book and matching engine.
 
 ## Features
 
