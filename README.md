@@ -35,7 +35,7 @@ To install the package, use:
 
 ```sh
 # pip
-pip install pyorderbook
+pip3 install pyorderbook
 # uv
 uv pip install pyorderbook
 # or 
