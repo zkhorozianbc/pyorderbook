@@ -27,7 +27,6 @@ class TradeBlotter:
 
     order: Order
     trades: list[Trade]
-    num_trades: int = field(default=0, init=False)
     total_cost: float = field(default=0, init=False)
     average_price: float = field(default=0, init=False)
 
