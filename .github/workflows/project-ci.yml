@@ -1,59 +1,89 @@
-# This workflow will install Python dependencies, run tests and lint with a variety of Python versions
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
-
 name: Project CI
+
 on:
+  # ---------- normal code changes ----------
   push:
-    branches: ["main"]
+    branches: [main]
+    paths:            # <-- run only if these change
+      - 'pyorderbook/**'
+    # tags live here too – see note below
     tags:
-      - 'v*.*.*' # Trigger on version tags like v0.4.5
-      - 'test-v*.*.*' # TestPyPI releases
+      - 'v*.*.*'      # prod release
+      - 'test-v*.*.*' # TestPyPI
+
   pull_request:
-    branches: ["main"]
-  workflow_dispatch: # Allow manual triggering
+    branches: [main]
+    paths:
+      - 'pyorderbook/**'
+
+  # still allow manual triggers
+  workflow_dispatch:
+
 jobs:
+  # first, check whether the tag/commit actually modified code
+  changes:
+    runs-on: ubuntu-latest
+    # path filters are ignored for tag-only pushes, so we compute them ourselves
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            code:
+              - 'pyorderbook/**'
+    outputs:
+      code_changed: ${{ steps.filter.outputs.code }}
+
   build:
+    needs: changes
+    if: needs.changes.outputs.code_changed == 'true'      # ←- skip job entirely
     environment: CI Environment
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
     name: python
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "0.5.26"
-      - name: "Set up Python"
+          version: '0.5.26'
+
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: "pyproject.toml"
+          python-version-file: 'pyproject.toml'
+
       - name: Install the project
         run: uv sync --all-extras --dev
+
       - name: Run pre-commit
-        run: |
-          uv run pre-commit run --all-files
-      - name: Run Testing
-        run: |
-          uv run pytest
-      - name: Build Project
+        run: uv run pre-commit run --all-files
+
+      - name: Run tests
+        run: uv run pytest
+
+      - name: Build project
         run: |
           uv build
           uv lock
+
+      # ---------- Publish ----------
       - name: Publish to TestPyPI
         if: startsWith(github.ref, 'refs/tags/test-v')
         env:
           UV_PUBLISH_URL: https://test.pypi.org/legacy/
           UV_PUBLISH_USERNAME: __token__
           UV_PUBLISH_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
-        run: |
-          uv publish
-      # Publish to PyPI when a version tag is pushed
+        run: uv publish
+
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           UV_PUBLISH_URL: https://upload.pypi.org/legacy/
           UV_PUBLISH_USERNAME: __token__
           UV_PUBLISH_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          uv publish
+        run: uv publish
