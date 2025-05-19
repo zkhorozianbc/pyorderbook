@@ -2,6 +2,7 @@
 [![Project CI](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml/badge.svg?refresh=1)](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/pyorderbook)
 [![License](https://img.shields.io/github/license/zkhorozianbc/pyorderbook.svg)](https://github.com/zkhorozianbc/pyorderbook/blob/main/LICENSE)
 
 PyOrderBook is a pure Python implementation of a limit order book and matching engine.
