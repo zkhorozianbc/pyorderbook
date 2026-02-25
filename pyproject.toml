@@ -1,6 +1,6 @@
 [build-system]
-requires = [ "hatchling>=1.0.0",]
-build-backend = "hatchling.build"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "pyorderbook"
@@ -15,7 +15,7 @@ name = "Zach Khorozian"
 email = "zkhorozianbc@gmail.com"
 
 [dependency-groups]
-dev = [ "pre-commit>=4.1.0", "mypy>=1.13.0", "pytest>=8.3.3", "ruff>=0.7.4", "pre-commit>=3.5.0", "toml>=0.10.2",]
+dev = [ "pre-commit>=4.1.0", "mypy>=1.13.0", "pytest>=8.3.3", "ruff>=0.7.4", "pre-commit>=3.5.0", "toml>=0.10.2", "maturin>=1.0,<2.0",]
 
 [project.license]
 file = "LICENSE"
@@ -39,6 +39,7 @@ select = [ "E", "F", "UP", "B", "SIM", "I",]
 ignore = []
 fixable = [ "ALL",]
 
-[tool.hatch.build.targets.wheel]
-packages = [ "pyorderbook",]
-include = [ "pyorderbook/*.py", "test/*.py",]
+[tool.maturin]
+python-source = "."
+module-name = "pyorderbook._rust"
+features = ["pyo3/extension-module"]

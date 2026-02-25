@@ -4,9 +4,10 @@ on:
   # ---------- normal code changes ----------
   push:
     branches: [main]
-    paths:            # <-- run only if these change
+    paths:
       - 'pyorderbook/**'
-    # tags live here too – see note below
+      - 'src/**'
+      - 'Cargo.toml'
     tags:
       - 'v*.*.*'      # prod release
       - 'test-v*.*.*' # TestPyPI
@@ -15,6 +16,8 @@ on:
     branches: [main]
     paths:
       - 'pyorderbook/**'
+      - 'src/**'
+      - 'Cargo.toml'
 
   # still allow manual triggers
   workflow_dispatch:
@@ -23,7 +26,6 @@ jobs:
   # first, check whether the tag/commit actually modified code
   changes:
     runs-on: ubuntu-latest
-    # path filters are ignored for tag-only pushes, so we compute them ourselves
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -32,12 +34,14 @@ jobs:
           filters: |
             code:
               - 'pyorderbook/**'
+              - 'src/**'
+              - 'Cargo.toml'
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
 
   build:
     needs: changes
-    if: needs.changes.outputs.code_changed == 'true'      # ←- skip job entirely
+    if: needs.changes.outputs.code_changed == 'true' || github.event_name == 'workflow_dispatch'
     environment: CI Environment
     runs-on: ubuntu-latest
     strategy:
@@ -66,24 +70,95 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
-      - name: Build project
-        run: |
-          uv build
-          uv lock
+  build-rust:
+    needs: changes
+    if: needs.changes.outputs.code_changed == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    name: rust (py${{ matrix.python-version }})
 
-      # ---------- Publish ----------
-      - name: Publish to TestPyPI
-        if: startsWith(github.ref, 'refs/tags/test-v')
-        env:
-          UV_PUBLISH_URL: https://test.pypi.org/legacy/
-          UV_PUBLISH_USERNAME: __token__
-          UV_PUBLISH_PASSWORD: ${{ secrets.TESTPYPI_TOKEN }}
-        run: uv publish
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install maturin and pytest
+        run: pip install maturin pytest
+
+      - name: Build and install with maturin
+        run: maturin develop --skip-install && pip install -e .
+
+      - name: Verify Rust backend loads
+        run: python -c "import pyorderbook; assert pyorderbook._USING_RUST, 'Rust backend not loaded'"
+
+      - name: Run tests
+        run: pytest tests/
+
+  # ---------- Publish ----------
+  publish:
+    needs: [build, build-rust]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: CI Environment
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin, x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.target }}
+          path: dist
+
+  release:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/test-v')
+    runs-on: ubuntu-latest
+    environment: CI Environment
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
 
       - name: Publish to PyPI
-        if: startsWith(github.ref, 'refs/tags/v')
-        env:
-          UV_PUBLISH_URL: https://upload.pypi.org/legacy/
-          UV_PUBLISH_USERNAME: __token__
-          UV_PUBLISH_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: uv publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+
+  release-test:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/test-v')
+    runs-on: ubuntu-latest
+    environment: CI Environment
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.TESTPYPI_TOKEN }}
+          repository-url: https://test.pypi.org/legacy/

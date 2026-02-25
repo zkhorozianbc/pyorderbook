@@ -5,52 +5,60 @@
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/pyorderbook)
 [![License](https://img.shields.io/github/license/zkhorozianbc/pyorderbook.svg)](https://github.com/zkhorozianbc/pyorderbook/blob/main/LICENSE)
 
-PyOrderBook is a pure Python implementation of a limit order book and matching engine.
+A limit order book and matching engine with a Rust backend. Falls back to a pure-Python implementation when the compiled extension is unavailable.
 
-## Features
+## Installation
 
-- **Order Matching Engine**
-- **Order Cancellation**
-- **Detailed Trade Blotter**
+```sh
+pip install pyorderbook
+```
 
 ## Usage
 
 ```python
 from pyorderbook import Book, bid, ask
 
-# Create a new order book
 book = Book()
 
-# Process some orders
-book.match(bid("IBM", 3.5, 20))
-book.match(ask("IBM", 3.6, 10))
-trade_blotter = book.match(ask("IBM", 3.5, 10))
+# Submit orders
+book.match(bid("AAPL", 150.00, 100))
+book.match(ask("AAPL", 150.50, 50))
 
-# Print trade blotter
-print(trade_blotter)
+# Incoming order matches against standing orders
+blotter = book.match(ask("AAPL", 150.00, 30))
+
+print(blotter.trades)        # list of Trade objects
+print(blotter.total_cost)    # total fill cost
+print(blotter.average_price) # average fill price
+print(blotter.order.status)  # OrderStatus.FILLED / PARTIAL_FILL / QUEUED
+
+# Cancel a standing order
+order = book.get_order(order_id)
+book.cancel(order)
+
+# Batch matching
+blotters = book.match([bid("AAPL", 150.00, 10), bid("AAPL", 149.50, 20)])
 ```
 
-## Installation
+## Backend
 
-To install the package, use:
+Pre-built wheels include a compiled Rust extension (via [PyO3](https://pyo3.rs)) for Linux, macOS, and Windows. You can check which backend is active:
 
-```sh
-# pip
-pip3 install pyorderbook
-# uv
-uv pip install pyorderbook
-# or 
-uv add pyorderbook
+```python
+import pyorderbook
+print(pyorderbook._USING_RUST)  # True if Rust backend is loaded
 ```
 
-## System Requirements
+If the Rust extension is not available (e.g. installing from sdist without a Rust toolchain), the pure-Python implementation is used automatically. The API is identical.
+
+## Requirements
+
 - Python 3.11+
-
 
 ## Design
 
-- **Price Levels**: Stored in a heap of dataclasses, each with a price attribute and orders attribute. Orders are stored in a dictionary within each price level. New price levels are created when an unseen price is received for a symbol/side, and standing price levels are deleted when there are no more orders in the queue at that price level.
-- **Order Queueing**: Unfilled orders are enqueued to the tail of the corresponding symbol/side/price queue, maintaining insertion order.
-- **Matching Logic**: Iterates through the price level heap (descending order for bids, ascending for asks) and dequeues from the head of each matching price level until the level or incoming order quantity is exhausted.
-- **Order Cancellation**: Uses a reference map from order ID to its encompassing price level. The order is popped from the price level and the reference map.
-- **Precision**: Uses `decimal.Decimal` objects to store prices to avoid floating point arithmetic problems.
+- **Matching**: Price-time priority. Incoming orders match against the best available price, FIFO within each level.
+- **Price levels**: Sorted arrays with best price at the back for O(1) access during matching. New levels inserted via binary search.
+- **Order queues**: FIFO queues (VecDeque in Rust, dict in Python) at each price level.
+- **Cancellation**: O(log n) lookup via order ID reference map + binary search.
+- **Precision**: Prices stored as `decimal.Decimal` (Python) / `rust_decimal::Decimal` (Rust) to avoid floating-point errors.
