@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pyorderbook.level import PriceLevel
 from pyorderbook.order import Order, Side
+from pyorderbook.snapshot import Snapshot, SnapshotLevel
 from pyorderbook.trade_blotter import Trade, TradeBlotter
 
 logging.basicConfig(level=logging.INFO)
@@ -171,3 +172,57 @@ class Book:
         :returns: Order object
         """
         return self.order_map.get(order_id, None)
+
+    def snapshot(self, symbol: str, depth: int = 5) -> Snapshot | None:
+        """Return an L2 depth snapshot for a symbol, or None if never seen."""
+        if symbol not in self.levels:
+            return None
+        depth = max(0, depth)
+
+        # Extract top-N bid levels (best = highest price first)
+        bid_heap = list(self.levels[symbol][Side.BID])
+        bid_levels: list[SnapshotLevel] = []
+        for _ in range(min(depth, len(bid_heap))):
+            lvl = pq.heappop(bid_heap)
+            qty = sum(order.quantity for order in lvl.orders.values())
+            bid_levels.append(SnapshotLevel(price=lvl.price, quantity=qty))
+
+        # Extract top-N ask levels (best = lowest price first)
+        ask_heap = list(self.levels[symbol][Side.ASK])
+        ask_levels: list[SnapshotLevel] = []
+        for _ in range(min(depth, len(ask_heap))):
+            lvl = pq.heappop(ask_heap)
+            qty = sum(order.quantity for order in lvl.orders.values())
+            ask_levels.append(SnapshotLevel(price=lvl.price, quantity=qty))
+
+        best_bid = bid_levels[0].price if bid_levels else None
+        best_ask = ask_levels[0].price if ask_levels else None
+
+        spread: Decimal | None = None
+        midpoint: Decimal | None = None
+        if best_bid is not None and best_ask is not None:
+            spread = best_ask - best_bid
+            midpoint = (best_ask + best_bid) / Decimal(2)
+
+        bid_vwap = self._compute_vwap(bid_levels)
+        ask_vwap = self._compute_vwap(ask_levels)
+
+        return Snapshot(
+            bids=bid_levels,
+            asks=ask_levels,
+            spread=spread,
+            midpoint=midpoint,
+            bid_vwap=bid_vwap,
+            ask_vwap=ask_vwap,
+        )
+
+    @staticmethod
+    def _compute_vwap(levels: list[SnapshotLevel]) -> Decimal | None:
+        total_pq = Decimal(0)
+        total_q = 0
+        for lvl in levels:
+            total_pq += lvl.price * lvl.quantity
+            total_q += lvl.quantity
+        if total_q == 0:
+            return None
+        return total_pq / Decimal(total_q)

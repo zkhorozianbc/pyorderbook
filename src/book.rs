@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use uuid::Uuid;
 
 use crate::order::{decimal_to_py, uuid_to_py, Order, Side};
+use crate::snapshot::{Snapshot, SnapshotLevel};
 use crate::trade::{PriceLevel, Trade, TradeBlotter};
 
 // ---------------------------------------------------------------------------
@@ -407,6 +408,78 @@ impl Book {
             outer.set_item(symbol, inner)?;
         }
         Ok(outer.into())
+    }
+
+    /// Return an L2 depth snapshot for a symbol, or None if never seen.
+    #[pyo3(signature = (symbol, depth = 5))]
+    fn snapshot(&self, symbol: &str, depth: isize) -> Option<Snapshot> {
+        let sym_book = self.symbols.get(symbol)?;
+        let depth = depth.max(0) as usize;
+
+        // Bids: sorted ascending, best (highest) at back → iterate reversed
+        let bid_levels: Vec<SnapshotLevel> = sym_book
+            .bids
+            .levels
+            .iter()
+            .rev()
+            .take(depth)
+            .map(|lvl| {
+                let qty: i64 = lvl.orders.iter().map(|o| o.quantity).sum();
+                SnapshotLevel::from_rust(lvl.price, qty)
+            })
+            .collect();
+
+        // Asks: sorted descending, best (lowest) at back → iterate reversed
+        let ask_levels: Vec<SnapshotLevel> = sym_book
+            .asks
+            .levels
+            .iter()
+            .rev()
+            .take(depth)
+            .map(|lvl| {
+                let qty: i64 = lvl.orders.iter().map(|o| o.quantity).sum();
+                SnapshotLevel::from_rust(lvl.price, qty)
+            })
+            .collect();
+
+        let best_bid = bid_levels.first().map(|l| l.price);
+        let best_ask = ask_levels.first().map(|l| l.price);
+
+        let spread = match (best_bid, best_ask) {
+            (Some(b), Some(a)) => Some(a - b),
+            _ => None,
+        };
+
+        let midpoint = match (best_bid, best_ask) {
+            (Some(b), Some(a)) => Some((a + b) / Decimal::from(2)),
+            _ => None,
+        };
+
+        let bid_vwap = compute_vwap(&bid_levels);
+        let ask_vwap = compute_vwap(&ask_levels);
+
+        Some(Snapshot {
+            bids: bid_levels,
+            asks: ask_levels,
+            spread,
+            midpoint,
+            bid_vwap,
+            ask_vwap,
+        })
+    }
+}
+
+fn compute_vwap(levels: &[SnapshotLevel]) -> Option<Decimal> {
+    let mut sum_pq = Decimal::ZERO;
+    let mut sum_q: i64 = 0;
+    for lvl in levels {
+        sum_pq += lvl.price * Decimal::from(lvl.quantity);
+        sum_q += lvl.quantity;
+    }
+    if sum_q == 0 {
+        None
+    } else {
+        Some(sum_pq / Decimal::from(sum_q))
     }
 }
 

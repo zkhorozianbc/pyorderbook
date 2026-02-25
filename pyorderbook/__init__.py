@@ -15,6 +15,8 @@ try:
         OrderStatus,
         PriceLevel,
         Side,
+        Snapshot,
+        SnapshotLevel,
         Trade,
         TradeBlotter,
         ask,
@@ -26,6 +28,7 @@ except ImportError:
     from pyorderbook.book import Book
     from pyorderbook.level import PriceLevel
     from pyorderbook.order import Order, OrderQueue, OrderStatus, Side, ask, bid
+    from pyorderbook.snapshot import Snapshot, SnapshotLevel
     from pyorderbook.trade_blotter import Trade, TradeBlotter
 
 easter_egg = "artificial lake"
@@ -38,6 +41,8 @@ __all__ = [
     "OrderStatus",
     "Side",
     "PriceLevel",
+    "Snapshot",
+    "SnapshotLevel",
     "Trade",
     "TradeBlotter",
     "easter_egg",

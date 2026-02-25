@@ -23,6 +23,8 @@ from pyorderbook import (
     OrderStatus,
     PriceLevel,
     Side,
+    Snapshot,
+    SnapshotLevel,
     Trade,
     TradeBlotter,
     ask,
@@ -53,6 +55,8 @@ class TestBackendDetection:
             "OrderStatus",
             "Side",
             "PriceLevel",
+            "Snapshot",
+            "SnapshotLevel",
             "Trade",
             "TradeBlotter",
             "easter_egg",
@@ -966,3 +970,175 @@ class TestDirectConstruction:
         assert blotter.total_cost == 500.0
         assert blotter.average_price == 10.0
         assert len(blotter.trades) == 1
+
+
+# ── Snapshot ──────────────────────────────────────────────────────────────
+
+
+class TestSnapshot:
+    def test_unknown_symbol_returns_none(self) -> None:
+        book = Book()
+        assert book.snapshot("NOPE") is None
+
+    def test_basic_bids_and_asks(self) -> None:
+        book = Book()
+        book.match([bid("AAPL", 99.0, 10), bid("AAPL", 100.0, 20)])
+        book.match([ask("AAPL", 101.0, 30), ask("AAPL", 102.0, 40)])
+        snap = book.snapshot("AAPL")
+        assert snap is not None
+        # Bids: best (highest) first
+        assert len(snap.bids) == 2
+        assert snap.bids[0].price == Decimal("100")
+        assert snap.bids[0].quantity == 20
+        assert snap.bids[1].price == Decimal("99")
+        assert snap.bids[1].quantity == 10
+        # Asks: best (lowest) first
+        assert len(snap.asks) == 2
+        assert snap.asks[0].price == Decimal("101")
+        assert snap.asks[0].quantity == 30
+        assert snap.asks[1].price == Decimal("102")
+        assert snap.asks[1].quantity == 40
+
+    def test_spread_and_midpoint(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        book.match(ask("X", 12.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.spread == Decimal("2")
+        assert snap.midpoint == Decimal("11")
+
+    def test_bid_vwap(self) -> None:
+        book = Book()
+        # 2 bid levels: 50@10 + 50@20 → vwap = (50*10 + 50*20) / (50+50) = 1500/100 = 15
+        book.match([bid("X", 10.0, 50), bid("X", 20.0, 50)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.bid_vwap == Decimal("15")
+
+    def test_ask_vwap(self) -> None:
+        book = Book()
+        # 2 ask levels: 50@100 + 150@200 → vwap = (50*100 + 150*200) / (50+150) = 35000/200
+        book.match([ask("X", 100.0, 50), ask("X", 200.0, 150)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        expected = Decimal("35000") / Decimal("200")
+        assert snap.ask_vwap == expected
+
+    def test_depth_limiting(self) -> None:
+        book = Book()
+        for i in range(10):
+            book.match(bid("X", float(90 + i), 10))
+            book.match(ask("X", float(110 + i), 10))
+        snap = book.snapshot("X", depth=3)
+        assert snap is not None
+        assert len(snap.bids) == 3
+        assert len(snap.asks) == 3
+        # Best bid is highest price
+        assert snap.bids[0].price == Decimal("99")
+        # Best ask is lowest price
+        assert snap.asks[0].price == Decimal("110")
+
+    def test_one_sided_book_bids_only(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert len(snap.bids) == 1
+        assert len(snap.asks) == 0
+        assert snap.spread is None
+        assert snap.midpoint is None
+        assert snap.bid_vwap == Decimal("10")
+        assert snap.ask_vwap is None
+
+    def test_one_sided_book_asks_only(self) -> None:
+        book = Book()
+        book.match(ask("X", 20.0, 100))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert len(snap.bids) == 0
+        assert len(snap.asks) == 1
+        assert snap.spread is None
+        assert snap.midpoint is None
+        assert snap.bid_vwap is None
+        assert snap.ask_vwap == Decimal("20")
+
+    def test_quantity_aggregation_at_same_price(self) -> None:
+        book = Book()
+        book.match([bid("X", 10.0, 30), bid("X", 10.0, 70)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert len(snap.bids) == 1
+        assert snap.bids[0].price == Decimal("10")
+        assert snap.bids[0].quantity == 100
+
+    def test_default_depth_is_5(self) -> None:
+        book = Book()
+        for i in range(10):
+            book.match(bid("X", float(i + 1), 10))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert len(snap.bids) == 5
+
+    def test_depth_zero_returns_empty_snapshot(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X", depth=0)
+        assert snap is not None
+        assert len(snap.bids) == 0
+        assert len(snap.asks) == 0
+        assert snap.spread is None
+        assert snap.midpoint is None
+        assert snap.bid_vwap is None
+        assert snap.ask_vwap is None
+
+    def test_depth_negative_clamped_to_zero(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X", depth=-5)
+        assert snap is not None
+        assert len(snap.bids) == 0
+        assert len(snap.asks) == 0
+
+    def test_depth_exceeds_available_levels(self) -> None:
+        book = Book()
+        book.match([bid("X", 10.0, 50), bid("X", 11.0, 50)])
+        snap = book.snapshot("X", depth=100)
+        assert snap is not None
+        assert len(snap.bids) == 2
+
+    def test_empty_symbol_book(self) -> None:
+        """A symbol that had orders but is now fully crossed returns empty snapshot."""
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert len(snap.bids) == 0
+        assert len(snap.asks) == 0
+        assert snap.spread is None
+        assert snap.midpoint is None
+
+    def test_price_is_decimal(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.5, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert isinstance(snap.bids[0].price, Decimal)
+
+    def test_quantity_is_int(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert isinstance(snap.bids[0].quantity, int)
+
+    def test_snapshot_types(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        book.match(ask("X", 12.0, 50))
+        snap = book.snapshot("X")
+        assert isinstance(snap, Snapshot)
+        assert isinstance(snap.bids[0], SnapshotLevel)
+        assert isinstance(snap.spread, Decimal)
+        assert isinstance(snap.midpoint, Decimal)
