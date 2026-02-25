@@ -29,8 +29,8 @@ from pyorderbook import (
     bid,
 )
 
-
 # ── Backend detection ──────────────────────────────────────────────────────
+
 
 class TestBackendDetection:
     def test_using_rust_flag_exists(self) -> None:
@@ -45,14 +45,24 @@ class TestBackendDetection:
 
     def test_all_exports(self) -> None:
         expected = {
-            "Book", "bid", "ask", "Order", "OrderQueue", "OrderStatus",
-            "Side", "PriceLevel", "Trade", "TradeBlotter", "easter_egg",
+            "Book",
+            "bid",
+            "ask",
+            "Order",
+            "OrderQueue",
+            "OrderStatus",
+            "Side",
+            "PriceLevel",
+            "Trade",
+            "TradeBlotter",
+            "easter_egg",
             "_USING_RUST",
         }
         assert expected.issubset(set(pyorderbook.__all__))
 
 
 # ── Side enum ──────────────────────────────────────────────────────────────
+
 
 class TestSide:
     def test_bid_exists(self) -> None:
@@ -78,6 +88,7 @@ class TestSide:
 
 # ── OrderStatus enum ──────────────────────────────────────────────────────
 
+
 class TestOrderStatus:
     def test_queued(self) -> None:
         assert OrderStatus.QUEUED is not None
@@ -95,6 +106,7 @@ class TestOrderStatus:
 
 
 # ── Order construction ─────────────────────────────────────────────────────
+
 
 class TestOrder:
     def test_bid_order_creation(self) -> None:
@@ -147,22 +159,19 @@ class TestOrder:
 
 # ── Basic matching ─────────────────────────────────────────────────────────
 
+
 class TestBasicMatching:
     """Tests from the original test suite, plus extensions."""
 
     def test_bid_matches_standing_asks(self) -> None:
         book = Book()
-        blotters = book.match(
-            [ask("IBM", 3.5, 70), ask("IBM", 3.6, 70), bid("IBM", 54.3, 140)]
-        )
+        blotters = book.match([ask("IBM", 3.5, 70), ask("IBM", 3.6, 70), bid("IBM", 54.3, 140)])
         assert len(blotters[2].trades) == 2
         assert blotters[2].average_price == 3.55
 
     def test_ask_no_match_then_match(self) -> None:
         book = Book()
-        blotters = book.match(
-            [bid("GOOG", 3.5, 70), bid("GOOG", 3.6, 70), ask("GOOG", 54.3, 140)]
-        )
+        blotters = book.match([bid("GOOG", 3.5, 70), bid("GOOG", 3.6, 70), ask("GOOG", 54.3, 140)])
         assert len(blotters[2].trades) == 0
         assert blotters[2].average_price == 0
         blotter = book.match(ask("GOOG", 3.1, 140))
@@ -192,6 +201,7 @@ class TestBasicMatching:
 
 
 # ── Price-time priority (FIFO) ────────────────────────────────────────────
+
 
 class TestPriceTimePriority:
     def test_fifo_at_same_price(self) -> None:
@@ -241,6 +251,7 @@ class TestPriceTimePriority:
 
 # ── Partial fills ──────────────────────────────────────────────────────────
 
+
 class TestPartialFills:
     def test_incoming_partial_fill(self) -> None:
         """Incoming order partially filled, remainder enqueued."""
@@ -282,6 +293,7 @@ class TestPartialFills:
 
 # ── Fill price logic ───────────────────────────────────────────────────────
 
+
 class TestFillPrice:
     def test_bid_fill_price_is_min(self) -> None:
         """BID fill price = min(incoming, standing)."""
@@ -306,6 +318,7 @@ class TestFillPrice:
 
 
 # ── TradeBlotter statistics ────────────────────────────────────────────────
+
 
 class TestTradeBlotterStats:
     def test_total_cost_single_trade(self) -> None:
@@ -343,6 +356,7 @@ class TestTradeBlotterStats:
 
 # ── Multi-symbol isolation ─────────────────────────────────────────────────
 
+
 class TestMultiSymbol:
     def test_different_symbols_dont_match(self) -> None:
         book = Book()
@@ -367,6 +381,7 @@ class TestMultiSymbol:
 
 # ── Cancel ─────────────────────────────────────────────────────────────────
 
+
 class TestCancel:
     def test_cancel_removes_from_book(self) -> None:
         book = Book()
@@ -380,7 +395,7 @@ class TestCancel:
         book = Book()
         b1 = bid("X", 10.0, 50)
         # Don't add to book — cancel should fail
-        with pytest.raises(Exception):
+        with pytest.raises(KeyError):
             book.cancel(b1)
 
     def test_cancel_already_cancelled_raises(self) -> None:
@@ -388,7 +403,7 @@ class TestCancel:
         b1 = bid("X", 10.0, 50)
         book.match(b1)
         book.cancel(b1)
-        with pytest.raises(Exception):
+        with pytest.raises(KeyError):
             book.cancel(b1)
 
     def test_cancel_one_of_many_at_same_level(self) -> None:
@@ -420,6 +435,7 @@ class TestCancel:
 
 # ── get_order ──────────────────────────────────────────────────────────────
 
+
 class TestGetOrder:
     def test_get_standing_order(self) -> None:
         book = Book()
@@ -447,6 +463,7 @@ class TestGetOrder:
 
 # ── get_level ──────────────────────────────────────────────────────────────
 
+
 class TestGetLevel:
     def test_get_existing_level(self) -> None:
         book = Book()
@@ -471,6 +488,7 @@ class TestGetLevel:
 
 # ── No-cross scenarios ─────────────────────────────────────────────────────
 
+
 class TestNoCross:
     def test_bid_below_ask_no_match(self) -> None:
         book = Book()
@@ -488,6 +506,7 @@ class TestNoCross:
 
 
 # ── Edge cases ─────────────────────────────────────────────────────────────
+
 
 class TestEdgeCases:
     def test_quantity_one(self) -> None:
@@ -558,6 +577,7 @@ class TestEdgeCases:
 
 # ── Trade object ───────────────────────────────────────────────────────────
 
+
 class TestTrade:
     def test_trade_fields(self) -> None:
         book = Book()
@@ -587,6 +607,7 @@ class TestTrade:
 
 
 # ── OrderQueue ─────────────────────────────────────────────────────────────
+
 
 class TestOrderQueue:
     def test_empty_queue(self) -> None:
@@ -631,6 +652,7 @@ class TestOrderQueue:
 
 # ── Stress / batch ─────────────────────────────────────────────────────────
 
+
 class TestStress:
     def test_batch_of_100_orders(self) -> None:
         book = Book()
@@ -654,6 +676,7 @@ class TestStress:
 
 
 # ── Side string equality (StrEnum parity) ─────────────────────────────────
+
 
 class TestSideStringEquality:
     """Side.BID == 'bid' must be True, matching Python StrEnum behavior."""
@@ -695,6 +718,7 @@ class TestSideStringEquality:
 
 # ── Cancel error parity ───────────────────────────────────────────────────
 
+
 class TestCancelErrorParity:
     def test_cancel_nonexistent_raises_key_error(self) -> None:
         """cancel should raise KeyError specifically."""
@@ -707,16 +731,15 @@ class TestCancelErrorParity:
         """The KeyError argument should be the UUID object."""
         book = Book()
         b1 = bid("X", 10.0, 50)
-        try:
+        with pytest.raises(KeyError) as exc_info:
             book.cancel(b1)
-            assert False, "Should have raised"
-        except KeyError as e:
-            # The error arg should be a UUID, matching Python backend
-            assert isinstance(e.args[0], uuid.UUID)
-            assert e.args[0] == b1.id
+        # The error arg should be a UUID, matching Python backend
+        assert isinstance(exc_info.value.args[0], uuid.UUID)
+        assert exc_info.value.args[0] == b1.id
 
 
 # ── Book.fill() ───────────────────────────────────────────────────────────
+
 
 class TestBookFill:
     def test_fill_exists(self) -> None:
@@ -743,6 +766,7 @@ class TestBookFill:
 
 
 # ── Book.enqueue_order() ──────────────────────────────────────────────────
+
 
 class TestBookEnqueueOrder:
     def test_enqueue_order_exists(self) -> None:
@@ -775,6 +799,7 @@ class TestBookEnqueueOrder:
 
 
 # ── Book attribute access ─────────────────────────────────────────────────
+
 
 class TestBookAttributes:
     def test_order_map_exists(self) -> None:
@@ -832,6 +857,7 @@ class TestBookAttributes:
 
 # ── OrderQueue dict-like operations ───────────────────────────────────────
 
+
 class TestOrderQueueDictOps:
     def test_iteration(self) -> None:
         q = OrderQueue()
@@ -883,10 +909,12 @@ class TestOrderQueueDictOps:
 
 # ── PriceLevel.__lt__ (heapq compatibility) ───────────────────────────────
 
+
 class TestPriceLevelComparison:
     def test_bid_lt_higher_price_is_first(self) -> None:
         """For BID heap, higher price should sort first (max-heap via __lt__)."""
         import heapq
+
         p1 = PriceLevel(Side.BID, Decimal("10"))
         p2 = PriceLevel(Side.BID, Decimal("20"))
         heap: list[PriceLevel] = []
@@ -899,6 +927,7 @@ class TestPriceLevelComparison:
     def test_ask_lt_lower_price_is_first(self) -> None:
         """For ASK heap, lower price should sort first (min-heap via __lt__)."""
         import heapq
+
         p1 = PriceLevel(Side.ASK, Decimal("20"))
         p2 = PriceLevel(Side.ASK, Decimal("10"))
         heap: list[PriceLevel] = []
@@ -916,6 +945,7 @@ class TestPriceLevelComparison:
 
 
 # ── Trade and TradeBlotter direct construction ────────────────────────────
+
 
 class TestDirectConstruction:
     def test_trade_direct_construction(self) -> None:
