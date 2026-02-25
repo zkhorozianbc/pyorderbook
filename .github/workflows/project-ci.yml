@@ -8,6 +8,7 @@ on:
       - 'pyorderbook/**'
       - 'src/**'
       - 'Cargo.toml'
+      - '.github/workflows/**'
     tags:
       - 'v*.*.*'      # prod release
       - 'test-v*.*.*' # TestPyPI
@@ -18,6 +19,7 @@ on:
       - 'pyorderbook/**'
       - 'src/**'
       - 'Cargo.toml'
+      - '.github/workflows/**'
 
   # still allow manual triggers
   workflow_dispatch:
@@ -36,6 +38,7 @@ jobs:
               - 'pyorderbook/**'
               - 'src/**'
               - 'Cargo.toml'
+              - '.github/workflows/**'
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
 
