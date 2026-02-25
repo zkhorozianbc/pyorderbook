@@ -1,5 +1,4 @@
 name: Project CI
-
 on:
   # ---------- normal code changes ----------
   push:
@@ -10,9 +9,8 @@ on:
       - 'Cargo.toml'
       - '.github/workflows/**'
     tags:
-      - 'v*.*.*'      # prod release
+      - 'v*.*.*' # prod release
       - 'test-v*.*.*' # TestPyPI
-
   pull_request:
     branches: [main]
     paths:
@@ -20,10 +18,8 @@ on:
       - 'src/**'
       - 'Cargo.toml'
       - '.github/workflows/**'
-
   # still allow manual triggers
   workflow_dispatch:
-
 jobs:
   # first, check whether the tag/commit actually modified code
   changes:
@@ -41,7 +37,6 @@ jobs:
               - '.github/workflows/**'
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
-
   build:
     needs: changes
     if: needs.changes.outputs.code_changed == 'true' || github.event_name == 'workflow_dispatch'
@@ -50,32 +45,24 @@ jobs:
     strategy:
       fail-fast: false
     name: python
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           version: '0.5.26'
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-
       - name: Install the project
         run: uv sync --all-extras --dev --python 3.13
-
       - name: Run pre-commit
         run: uv run pre-commit run --all-files
-
       - name: Run tests
         run: uv run pytest
-
   build-rust:
     needs: changes
     if: needs.changes.outputs.code_changed == 'true' || github.event_name == 'workflow_dispatch'
@@ -85,18 +72,14 @@ jobs:
       matrix:
         python-version: ['3.11', '3.12', '3.13']
     name: rust (py${{ matrix.python-version }})
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Build and test with maturin
         run: |
           python -m venv .venv
@@ -106,7 +89,6 @@ jobs:
           maturin develop
           python -c "import pyorderbook; assert pyorderbook._USING_RUST, 'Rust backend not loaded'"
           pytest tests/
-
   # ---------- Publish ----------
   publish:
     needs: [build, build-rust]
@@ -118,20 +100,17 @@ jobs:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, aarch64-apple-darwin, x86_64-apple-darwin, x86_64-pc-windows-msvc, aarch64-pc-windows-msvc]
     steps:
       - uses: actions/checkout@v4
-
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
           args: --release --out dist
           manylinux: auto
-
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.target }}
           path: dist
-
   release:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref, 'refs/tags/test-v')
@@ -143,12 +122,10 @@ jobs:
           pattern: wheels-*
           merge-multiple: true
           path: dist
-
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_TOKEN }}
-
   release-test:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/test-v')
@@ -160,7 +137,6 @@ jobs:
           pattern: wheels-*
           merge-multiple: true
           path: dist
-
       - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

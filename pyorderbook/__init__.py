@@ -20,6 +20,7 @@ try:
         ask,
         bid,
     )
+
     _USING_RUST = True
 except ImportError:
     from pyorderbook.book import Book
