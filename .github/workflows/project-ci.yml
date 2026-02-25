@@ -51,6 +51,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -59,10 +62,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version-file: 'pyproject.toml'
+          python-version: '3.13'
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --all-extras --dev --python 3.13
 
       - name: Run pre-commit
         run: uv run pre-commit run --all-files
@@ -91,17 +94,14 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install maturin and pytest
-        run: pip install maturin pytest
-
-      - name: Build and install with maturin
-        run: maturin develop --skip-install && pip install -e .
-
-      - name: Verify Rust backend loads
-        run: python -c "import pyorderbook; assert pyorderbook._USING_RUST, 'Rust backend not loaded'"
-
-      - name: Run tests
-        run: pytest tests/
+      - name: Build and test with maturin
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install maturin pytest
+          maturin develop
+          python -c "import pyorderbook; assert pyorderbook._USING_RUST, 'Rust backend not loaded'"
+          pytest tests/
 
   # ---------- Publish ----------
   publish:
