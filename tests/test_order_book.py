@@ -12,8 +12,8 @@ def _write_orders_parquet(path: Path, rows: list[dict[str, object]]) -> None:
     table = pa.table({
         "side": [str(row["side"]) for row in rows],
         "symbol": [str(row["symbol"]) for row in rows],
-        "price": [float(row["price"]) for row in rows],
-        "quantity": [int(row["quantity"]) for row in rows],
+        "price": [float(str(row["price"])) for row in rows],
+        "quantity": [int(str(row["quantity"])) for row in rows],
     })
     parquet.write_table(table, path)
 
