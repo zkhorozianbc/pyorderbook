@@ -2,7 +2,7 @@ import heapq as pq
 import logging
 from collections import defaultdict
 from decimal import Decimal
-from typing import TypeAlias, overload
+from typing import TypeAlias, cast, overload
 from uuid import UUID
 
 from pyorderbook.level import PriceLevel
@@ -16,6 +16,26 @@ logger = logging.getLogger(__name__)
 Symbol: TypeAlias = str
 Price: TypeAlias = Decimal
 PriceLevelHeap: TypeAlias = list[PriceLevel]
+REQUIRED_PARQUET_COLUMNS: tuple[str, str, str, str] = ("side", "symbol", "price", "quantity")
+
+
+def _read_parquet_rows(path: str) -> list[dict[str, object]]:
+    try:
+        import pyarrow.parquet as parquet
+    except ImportError as exc:
+        raise ImportError(
+            "pyarrow is required for parquet ingestion. Install with `pip install pyarrow`."
+        ) from exc
+
+    table = parquet.read_table(path)
+    missing_columns = [name for name in REQUIRED_PARQUET_COLUMNS if name not in table.column_names]
+    if missing_columns:
+        required = ", ".join(REQUIRED_PARQUET_COLUMNS)
+        missing = ", ".join(missing_columns)
+        raise ValueError(
+            f"Parquet file must contain columns [{required}]; missing [{missing}]."
+        )
+    return cast(list[dict[str, object]], table.to_pylist())
 
 
 class Book:
@@ -50,6 +70,31 @@ class Book:
         elif isinstance(orders, Order):
             return self._match(orders)
         raise ValueError("Invalid input type", type(orders))
+
+    def replay_parquet(self, path: str) -> list[TradeBlotter]:
+        """Replay an event-stream parquet file through the matching engine."""
+        blotters: list[TradeBlotter] = []
+        for row_idx, row in enumerate(_read_parquet_rows(path)):
+            order = self._order_from_parquet_row(row, row_idx)
+            blotter = self.match(order)
+            if not isinstance(blotter, TradeBlotter):
+                raise TypeError("Expected TradeBlotter from single-order replay")
+            blotters.append(blotter)
+        return blotters
+
+    def ingest_parquet(self, path: str) -> int:
+        """Ingest a snapshot parquet file directly as standing orders."""
+        rows = _read_parquet_rows(path)
+        for row_idx, row in enumerate(rows):
+            self.enqueue_order(self._order_from_parquet_row(row, row_idx))
+        return len(rows)
+
+    @classmethod
+    def from_parquet(cls, path: str) -> "Book":
+        """Construct a Book from a snapshot parquet file."""
+        book = cls()
+        book.ingest_parquet(path)
+        return book
 
     def _match(self, incoming_order: Order) -> TradeBlotter:
         """Main Order procesing function which executes the price-time priority
@@ -216,6 +261,15 @@ class Book:
             ask_vwap=ask_vwap,
         )
 
+    def get_order_map(self) -> dict[UUID, Order]:
+        return self.order_map
+
+    def get_levels(self) -> defaultdict[str, dict[Side, PriceLevelHeap]]:
+        return self.levels
+
+    def get_level_map(self) -> defaultdict[str, dict[Side, dict[Price, PriceLevel]]]:
+        return self.level_map
+
     @staticmethod
     def _compute_vwap(levels: list[SnapshotLevel]) -> Decimal | None:
         total_pq = Decimal(0)
@@ -226,3 +280,54 @@ class Book:
         if total_q == 0:
             return None
         return total_pq / Decimal(total_q)
+
+    @staticmethod
+    def _order_from_parquet_row(row: dict[str, object], row_idx: int) -> Order:
+        side_raw = row.get("side")
+        if side_raw is None:
+            raise ValueError(f"Missing required field 'side' at row {row_idx}")
+        side_text = str(side_raw).lower()
+        try:
+            side = Side(side_text)
+        except ValueError as exc:
+            raise ValueError(
+                f"Invalid side at row {row_idx}: '{side_raw}'. Expected 'bid' or 'ask'."
+            ) from exc
+
+        symbol_raw = row.get("symbol")
+        if symbol_raw is None:
+            raise ValueError(f"Missing required field 'symbol' at row {row_idx}")
+        symbol = str(symbol_raw)
+        if not symbol:
+            raise ValueError(f"Symbol cannot be empty at row {row_idx}")
+
+        price_raw = row.get("price")
+        if price_raw is None:
+            raise ValueError(f"Missing required field 'price' at row {row_idx}")
+        if not isinstance(price_raw, int | float | str):
+            raise ValueError(f"Invalid price at row {row_idx}: '{price_raw}'")
+        try:
+            price = float(price_raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid price at row {row_idx}: '{price_raw}'") from exc
+
+        quantity_raw = row.get("quantity")
+        if quantity_raw is None:
+            raise ValueError(f"Missing required field 'quantity' at row {row_idx}")
+        if isinstance(quantity_raw, bool):
+            raise ValueError(f"Invalid quantity at row {row_idx}: '{quantity_raw}'")
+        try:
+            if isinstance(quantity_raw, float):
+                if not quantity_raw.is_integer():
+                    raise ValueError(
+                        f"Invalid quantity at row {row_idx}: '{quantity_raw}'"
+                    )
+                quantity = int(quantity_raw)
+            elif isinstance(quantity_raw, int | str):
+                quantity = int(quantity_raw)
+            else:
+                raise ValueError(f"Invalid quantity at row {row_idx}: '{quantity_raw}'")
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid quantity at row {row_idx}: '{quantity_raw}'") from exc
+
+        return Order(side, symbol, price, quantity)

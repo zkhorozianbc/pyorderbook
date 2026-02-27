@@ -64,6 +64,27 @@ class Order:
             return OrderStatus.PARTIAL_FILL
         return OrderStatus.QUEUED
 
+    def get_id(self) -> UUID:
+        return self.id
+
+    def get_price(self) -> Price:
+        return self.price
+
+    def get_quantity(self) -> int:
+        return self.quantity
+
+    def get_symbol(self) -> Symbol:
+        return self.symbol
+
+    def get_side(self) -> Side:
+        return self.side
+
+    def get_original_quantity(self) -> int:
+        return self.original_quantity
+
+    def get_status(self) -> OrderStatus:
+        return self.status
+
 
 bid = partial(Order, Side.BID)
 ask = partial(Order, Side.ASK)

@@ -1,5 +1,5 @@
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -123,6 +123,140 @@ struct MatchResult {
     remaining_qty: i64,
 }
 
+const PARQUET_COLUMNS: [&str; 4] = ["side", "symbol", "price", "quantity"];
+
+#[derive(Clone, Debug)]
+struct ParquetOrderRow {
+    side: Side,
+    symbol: String,
+    price: f64,
+    quantity: i64,
+}
+
+impl ParquetOrderRow {
+    fn to_order(&self) -> PyResult<Order> {
+        Order::try_new(self.side, self.symbol.clone(), self.price, self.quantity)
+    }
+}
+
+fn parse_parquet_side(side_text: &str, row_idx: usize) -> PyResult<Side> {
+    match side_text.to_ascii_lowercase().as_str() {
+        "bid" => Ok(Side::BID),
+        "ask" => Ok(Side::ASK),
+        _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Invalid side at row {}: '{}'. Expected 'bid' or 'ask'.",
+            row_idx, side_text
+        ))),
+    }
+}
+
+fn read_required_row_field<'py>(
+    row: &Bound<'py, PyDict>,
+    field: &str,
+    row_idx: usize,
+) -> PyResult<Bound<'py, pyo3::PyAny>> {
+    row.get_item(field)?.ok_or_else(|| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Missing required field '{}' at row {}",
+            field, row_idx
+        ))
+    })
+}
+
+fn extract_row_price(value: &Bound<'_, pyo3::PyAny>, row_idx: usize) -> PyResult<f64> {
+    if let Ok(price) = value.extract::<f64>() {
+        return Ok(price);
+    }
+    let as_str: String = value.str()?.extract()?;
+    as_str.parse::<f64>().map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Invalid price at row {}: '{}'",
+            row_idx, as_str
+        ))
+    })
+}
+
+fn extract_row_quantity(value: &Bound<'_, pyo3::PyAny>, row_idx: usize) -> PyResult<i64> {
+    if let Ok(quantity) = value.extract::<i64>() {
+        return Ok(quantity);
+    }
+    let as_str: String = value.str()?.extract()?;
+    as_str.parse::<i64>().map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Invalid quantity at row {}: '{}'",
+            row_idx, as_str
+        ))
+    })
+}
+
+fn read_parquet_rows(path: &str, py: Python<'_>) -> PyResult<Vec<ParquetOrderRow>> {
+    let pq = py.import("pyarrow.parquet").map_err(|_| {
+        pyo3::exceptions::PyImportError::new_err(
+            "pyarrow is required for parquet ingestion. Install with `pip install pyarrow`.",
+        )
+    })?;
+
+    let table = pq.call_method1("read_table", (path,)).map_err(|err| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Failed to read parquet file '{}': {}",
+            path, err
+        ))
+    })?;
+
+    let column_names: Vec<String> = table.getattr("column_names")?.extract()?;
+    let missing_columns: Vec<&str> = PARQUET_COLUMNS
+        .iter()
+        .copied()
+        .filter(|name| !column_names.iter().any(|existing| existing == name))
+        .collect();
+    if !missing_columns.is_empty() {
+        return Err(pyo3::exceptions::PyValueError::new_err(format!(
+            "Parquet file must contain columns [{}]; missing [{}].",
+            PARQUET_COLUMNS.join(", "),
+            missing_columns.join(", ")
+        )));
+    }
+
+    let rows_obj = table.call_method0("to_pylist")?;
+    let rows = rows_obj.downcast::<PyList>()?;
+    let mut parsed_rows = Vec::with_capacity(rows.len());
+
+    for (row_idx, row_any) in rows.iter().enumerate() {
+        let row = row_any.downcast::<PyDict>().map_err(|_| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Parquet row {} is not a mapping.",
+                row_idx
+            ))
+        })?;
+
+        let side_text: String = read_required_row_field(&row, "side", row_idx)?.extract()?;
+        let side = parse_parquet_side(&side_text, row_idx)?;
+
+        let symbol: String = read_required_row_field(&row, "symbol", row_idx)?.extract()?;
+        if symbol.is_empty() {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "Symbol cannot be empty at row {}",
+                row_idx
+            )));
+        }
+
+        let price = extract_row_price(&read_required_row_field(&row, "price", row_idx)?, row_idx)?;
+        let quantity = extract_row_quantity(
+            &read_required_row_field(&row, "quantity", row_idx)?,
+            row_idx,
+        )?;
+
+        parsed_rows.push(ParquetOrderRow {
+            side,
+            symbol,
+            price,
+            quantity,
+        });
+    }
+
+    Ok(parsed_rows)
+}
+
 // ---------------------------------------------------------------------------
 // Python-visible Book class
 // ---------------------------------------------------------------------------
@@ -153,19 +287,64 @@ impl Book {
         orders: &Bound<'_, pyo3::PyAny>,
         py: Python<'_>,
     ) -> PyResult<PyObject> {
-        if let Ok(list) = orders.downcast::<pyo3::types::PyList>() {
+        if let Ok(list) = orders.downcast::<PyList>() {
             let mut blotters: Vec<Py<TradeBlotter>> = Vec::new();
             for item in list.iter() {
                 let order: PyRef<Order> = item.extract()?;
                 let blotter = self.match_single(&order)?;
                 blotters.push(Py::new(py, blotter)?);
             }
-            Ok(pyo3::types::PyList::new(py, blotters)?.into())
+            Ok(PyList::new(py, blotters)?.into())
         } else {
             let order: PyRef<Order> = orders.extract()?;
             let blotter = self.match_single(&order)?;
             Ok(Py::new(py, blotter)?.into_any().into())
         }
+    }
+
+    /// Replay an event-stream parquet file through the matching engine.
+    ///
+    /// Expected columns:
+    /// - side: "bid" | "ask"
+    /// - symbol: string
+    /// - price: numeric
+    /// - quantity: integer
+    ///
+    /// Returns a list of TradeBlotter entries, one per input row.
+    fn replay_parquet(&mut self, path: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let rows = read_parquet_rows(path, py)?;
+        let mut blotters: Vec<Py<TradeBlotter>> = Vec::with_capacity(rows.len());
+        for row in rows {
+            let order = row.to_order()?;
+            let blotter = self.match_single(&order)?;
+            blotters.push(Py::new(py, blotter)?);
+        }
+        Ok(PyList::new(py, blotters)?.into())
+    }
+
+    /// Ingest a snapshot parquet file directly into the book as standing orders.
+    ///
+    /// Expected columns:
+    /// - side: "bid" | "ask"
+    /// - symbol: string
+    /// - price: numeric
+    /// - quantity: integer
+    ///
+    /// Returns the number of ingested rows.
+    fn ingest_parquet(&mut self, path: &str, py: Python<'_>) -> PyResult<usize> {
+        let rows = read_parquet_rows(path, py)?;
+        for row in &rows {
+            self.enqueue_internal(&row.to_order()?);
+        }
+        Ok(rows.len())
+    }
+
+    /// Build a Book from a snapshot parquet file.
+    #[staticmethod]
+    fn from_parquet(path: &str, py: Python<'_>) -> PyResult<Self> {
+        let mut book = Book::new();
+        book.ingest_parquet(path, py)?;
+        Ok(book)
     }
 
     /// Cancel a standing order.
@@ -217,8 +396,9 @@ impl Book {
         let matched_quantity = incoming_order.quantity.min(standing_order.quantity);
         standing_order.quantity -= matched_quantity;
         incoming_order.quantity -= matched_quantity;
-        let fill_price =
-            incoming_order.side.calc_fill_price(incoming_order.price, standing_order.price);
+        let fill_price = incoming_order
+            .side
+            .calc_fill_price(incoming_order.price, standing_order.price);
         let trade = Trade::from_rust(
             incoming_order.id,
             standing_order.id,
@@ -230,19 +410,7 @@ impl Book {
 
     /// Add order to book directly (enqueue without matching).
     fn enqueue_order(&mut self, order: PyRef<Order>) {
-        let entry = OrderEntry::from_order(&order);
-        let ascending = matches!(order.side, Side::BID);
-        let sym_book = self.symbols.entry(order.symbol.clone()).or_default();
-        let one_side = if ascending {
-            &mut sym_book.bids
-        } else {
-            &mut sym_book.asks
-        };
-        one_side.insert(entry, ascending);
-        self.order_map.insert(
-            order.id,
-            (order.symbol.clone(), order.side, order.price),
-        );
+        self.enqueue_internal(&order);
     }
 
     /// Return an Order by its id, or None.
@@ -410,6 +578,11 @@ impl Book {
         Ok(outer.into())
     }
 
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
+    }
+
     /// Return an L2 depth snapshot for a symbol, or None if never seen.
     #[pyo3(signature = (symbol, depth = 5))]
     fn snapshot(&self, symbol: &str, depth: isize) -> Option<Snapshot> {
@@ -484,6 +657,20 @@ fn compute_vwap(levels: &[SnapshotLevel]) -> Option<Decimal> {
 }
 
 impl Book {
+    fn enqueue_internal(&mut self, order: &Order) {
+        let entry = OrderEntry::from_order(order);
+        let ascending = matches!(order.side, Side::BID);
+        let sym_book = self.symbols.entry(order.symbol.clone()).or_default();
+        let one_side = if ascending {
+            &mut sym_book.bids
+        } else {
+            &mut sym_book.asks
+        };
+        one_side.insert(entry, ascending);
+        self.order_map
+            .insert(order.id, (order.symbol.clone(), order.side, order.price));
+    }
+
     /// Core matching logic — pure Rust, no Python objects involved.
     fn match_inner(
         &mut self,
@@ -520,8 +707,7 @@ impl Book {
                 standing.quantity -= matched_qty;
                 remaining_qty -= matched_qty;
 
-                let fill_price =
-                    incoming_side.calc_fill_price(incoming_price, standing.price);
+                let fill_price = incoming_side.calc_fill_price(incoming_price, standing.price);
 
                 trades.push(Trade::from_rust(
                     incoming_id,
@@ -536,7 +722,11 @@ impl Book {
                 }
             }
 
-            if opposite.levels.last().map_or(false, |l| l.orders.is_empty()) {
+            if opposite
+                .levels
+                .last()
+                .map_or(false, |l| l.orders.is_empty())
+            {
                 opposite.levels.pop();
             }
         }
@@ -563,17 +753,9 @@ impl Book {
 
         // Enqueue remainder
         if result.remaining_qty > 0 {
-            let mut entry = OrderEntry::from_order(incoming);
-            entry.quantity = result.remaining_qty;
-
-            let ascending = matches!(incoming_side, Side::BID);
-            let same_side = match incoming_side {
-                Side::BID => &mut self.symbols.get_mut(&symbol).unwrap().bids,
-                Side::ASK => &mut self.symbols.get_mut(&symbol).unwrap().asks,
-            };
-            same_side.insert(entry, ascending);
-            self.order_map
-                .insert(incoming.id, (symbol, incoming_side, incoming_price));
+            let mut remainder = incoming.clone();
+            remainder.quantity = result.remaining_qty;
+            self.enqueue_internal(&remainder);
         }
 
         let mut result_order = incoming.clone();

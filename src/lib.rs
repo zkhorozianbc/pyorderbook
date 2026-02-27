@@ -1,6 +1,7 @@
 use pyo3::prelude::*;
 
 mod book;
+mod getter;
 mod order;
 mod snapshot;
 mod trade;

@@ -1,11 +1,9 @@
 # PyOrderBook
-[![Project CI](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml/badge.svg?refresh=1)](https://github.com/zkhorozianbc/pyorderbook/actions/workflows/project-ci.yml)
-[![PyPI version](https://img.shields.io/pypi/v/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
-[![Python Versions](https://img.shields.io/pypi/pyversions/pyorderbook.svg)](https://pypi.org/project/pyorderbook/)
-![PyPI - Downloads](https://img.shields.io/pypi/dm/pyorderbook)
-[![License](https://img.shields.io/github/license/zkhorozianbc/pyorderbook.svg)](https://github.com/zkhorozianbc/pyorderbook/blob/main/LICENSE)
 
-A Python Limit Order Book written in Rust.
+A high-performance limit order book and matching engine for Python, with a Rust backend via PyO3.
+
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ## Installation
 
@@ -13,112 +11,140 @@ A Python Limit Order Book written in Rust.
 pip install pyorderbook
 ```
 
-Requires Python 3.11+. Pre-built wheels available for Linux, macOS, and Windows.
-
 ## Quick Start
 
 ```python
-from pyorderbook import Book, bid, ask
+from pyorderbook import Book, ask, bid
 
 book = Book()
 
-# Place standing orders
+# Post two asks (sell orders)
 book.match(ask("AAPL", 150.00, 100))
 book.match(ask("AAPL", 151.00, 50))
 
-# Incoming bid sweeps through the best asks
+# Incoming bid sweeps both price levels
 blotter = book.match(bid("AAPL", 155.00, 120))
 
-blotter.trades          # list of executed Trade objects
-blotter.total_cost      # total fill cost
-blotter.average_price   # average fill price
-blotter.order.status    # FILLED / PARTIAL_FILL / QUEUED
+for trade in blotter.trades:
+    print(f"Filled {trade.fill_quantity} @ {trade.fill_price}")
+
+print(f"Total cost:    ${blotter.total_cost}")
+print(f"Average price: ${blotter.average_price}")
+print(f"Order status:  {blotter.order.status}")  # partial_fill (30 remaining)
 ```
 
-## Matching Engine
+## Core API
 
-Price-time priority with FIFO ordering within each level. Supports partial fills, multi-symbol isolation, and batch processing.
+### Orders
 
 ```python
-# Batch matching
-blotters = book.match([bid("AAPL", 150.00, 10), bid("GOOG", 100.00, 20)])
+from pyorderbook import bid, ask, Order, Side
 
-# Cancel a standing order
-order = bid("AAPL", 140.00, 500)
+order = bid("AAPL", 150.00, 100)   # Buy 100 AAPL @ $150
+order = ask("GOOG", 280.50, 50)    # Sell 50 GOOG @ $280.50
+
+# Or construct directly
+order = Order(Side.BID, "AAPL", 150.00, 100)
+
+order.id                # UUID
+order.price             # Decimal
+order.quantity           # int (remaining)
+order.original_quantity  # int
+order.symbol             # str
+order.side               # Side.BID | Side.ASK
+order.status             # queued | partial_fill | filled
+```
+
+### Matching
+
+```python
+book = Book()
+
+# Single order — returns TradeBlotter
+blotter = book.match(bid("AAPL", 150.00, 100))
+
+# Batch — returns list[TradeBlotter]
+blotters = book.match([
+    ask("AAPL", 149.00, 50),
+    ask("AAPL", 150.00, 50),
+])
+```
+
+Price-time priority: orders match at the best available price, with earlier orders at the same price filling first.
+
+### TradeBlotter
+
+Every `match()` call returns a `TradeBlotter` with execution details:
+
+| Field           | Type           | Description                  |
+|-----------------|----------------|------------------------------|
+| `order`         | `Order`        | The incoming order           |
+| `trades`        | `list[Trade]`  | Fills that occurred          |
+| `total_cost`    | `float`        | Sum of price * quantity      |
+| `average_price` | `float`        | Mean fill price              |
+
+Each `Trade` contains: `incoming_order_id`, `standing_order_id`, `fill_quantity`, `fill_price`.
+
+### Cancel
+
+```python
+order = bid("AAPL", 150.00, 100)
 book.match(order)
-book.cancel(order)
+book.cancel(order)  # Raises KeyError if not found
+```
+
+### Book Inspection
+
+```python
+book.get_order(order.id)                         # Order | None
+book.get_level("AAPL", Side.BID, Decimal("150")) # PriceLevel | None
+book.order_map                                    # dict[UUID, Order]
 ```
 
 ## L2 Snapshots
 
-Get a structured market data view with spread, midpoint, and VWAP.
-
 ```python
 snap = book.snapshot("AAPL", depth=5)
 
-snap.bids              # list[SnapshotLevel] — best (highest) first
-snap.asks              # list[SnapshotLevel] — best (lowest) first
-snap.spread            # Decimal | None
-snap.midpoint          # Decimal | None
-snap.bid_vwap          # Decimal | None
-snap.ask_vwap          # Decimal | None
-
-snap.bids[0].price     # Decimal
-snap.bids[0].quantity  # int (aggregated across all orders at that level)
+snap.bids       # list[SnapshotLevel] — best bid first
+snap.asks       # list[SnapshotLevel] — best ask first
+snap.spread     # Decimal | None
+snap.midpoint   # Decimal | None
+snap.bid_vwap   # Decimal | None
+snap.ask_vwap   # Decimal | None
 ```
 
-## Replay from Parquet
+Each `SnapshotLevel` has `.price` (Decimal) and `.quantity` (int, aggregated across orders at that level).
 
-Load historical order data and replay it through the matching engine.
+## Parquet Integration
+
+Requires `pyarrow`. Expected schema: `side` (str), `symbol` (str), `price` (numeric), `quantity` (int).
+
+### Replay Events
+
+Process time-ordered events through the matching engine:
 
 ```python
-import pyarrow.parquet as pq
-from pyorderbook import Book, bid, ask
-
-table = pq.read_table("orders.parquet")  # columns: side, symbol, price, quantity
-book = Book()
-
-for i in range(len(table)):
-    side = table.column("side")[i].as_py()
-    order_fn = bid if side == "bid" else ask
-    order = order_fn(
-        table.column("symbol")[i].as_py(),
-        table.column("price")[i].as_py(),
-        table.column("quantity")[i].as_py(),
-    )
-    blotter = book.match(order)
-
-# Inspect final book state
-snap = book.snapshot("AAPL", depth=10)
+blotters = book.replay_parquet("events.parquet")
 ```
 
-See [`examples/replay/`](examples/replay/) for a complete example with sample data.
+### Load Snapshot
 
-## API Reference
+Load standing orders without matching:
 
-| Function / Method | Description |
-|---|---|
-| `bid(symbol, price, qty)` | Create a buy order |
-| `ask(symbol, price, qty)` | Create a sell order |
-| `Book.match(order_or_list)` | Match against the book. Returns `TradeBlotter` or `list[TradeBlotter]` |
-| `Book.cancel(order)` | Cancel a standing order |
-| `Book.snapshot(symbol, depth=5)` | L2 depth snapshot with spread, midpoint, VWAP |
-| `Book.get_order(order_id)` | Look up an order by UUID |
-| `Book.get_level(symbol, side, price)` | Get the price level at a given price |
-| `Book.order_map` | All standing orders as `dict[UUID, Order]` |
-| `Book.levels` | Price levels by symbol and side |
+```python
+book = Book.from_parquet("snapshot.parquet")
+# or
+book.ingest_parquet("snapshot.parquet")
+```
 
-## Examples
+## Architecture
 
-| Example | Description |
-|---|---|
-| [`examples/basic/`](examples/basic/) | Order matching, partial fills, cancellation, FIFO |
-| [`examples/snapshots/`](examples/snapshots/) | L2 depth views, spread, midpoint, VWAP, aggregation |
-| [`examples/replay/`](examples/replay/) | Load orders from Parquet, replay through the book, snapshot over time |
+- **Matching engine**: price-time priority (FIFO at each price level)
+- **Rust backend**: core data structures compiled via [PyO3](https://pyo3.rs) + [maturin](https://www.maturin.rs)
+- **Multi-symbol**: single `Book` instance handles all symbols independently
+- **Decimal prices**: all prices stored as `decimal.Decimal` to avoid floating-point errors
 
-## Design
+## License
 
-- **Price-time priority** — best price first, FIFO within each level
-- **Decimal precision** — prices use `decimal.Decimal`, no floating-point errors
-- **Multi-symbol** — single `Book` handles any number of symbols independently
-- **Rust core** — matching engine compiled to native code via PyO3
+MIT

@@ -1142,3 +1142,288 @@ class TestSnapshot:
         assert isinstance(snap.bids[0], SnapshotLevel)
         assert isinstance(snap.spread, Decimal)
         assert isinstance(snap.midpoint, Decimal)
+
+
+# ── Getter methods ───────────────────────────────────────────────────────
+
+
+class TestOrderGetters:
+    def test_get_id(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_id() == o.id
+        assert isinstance(o.get_id(), uuid.UUID)
+
+    def test_get_price(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_price() == o.price
+        assert isinstance(o.get_price(), Decimal)
+
+    def test_get_quantity(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_quantity() == 100
+
+    def test_get_symbol(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_symbol() == "AAPL"
+
+    def test_get_side(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_side() == Side.BID
+        o2 = ask("AAPL", 150.0, 100)
+        assert o2.get_side() == Side.ASK
+
+    def test_get_original_quantity(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_original_quantity() == 100
+
+    def test_get_status_queued(self) -> None:
+        o = bid("AAPL", 150.0, 100)
+        assert o.get_status() == OrderStatus.QUEUED
+
+    def test_get_status_after_partial_fill(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 30))
+        blotter = book.match(bid("X", 10.0, 100))
+        assert blotter.order.get_status() == OrderStatus.PARTIAL_FILL
+
+    def test_get_status_after_full_fill(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        blotter = book.match(bid("X", 10.0, 50))
+        assert blotter.order.get_status() == OrderStatus.FILLED
+
+    def test_getter_returns_callable(self) -> None:
+        """get_* should be callable (method), not a bare value."""
+        o = bid("X", 10.0, 50)
+        assert callable(o.get_id)
+        assert callable(o.get_price)
+        assert callable(o.get_quantity)
+
+    def test_invalid_getter_raises(self) -> None:
+        o = bid("X", 10.0, 50)
+        with pytest.raises(AttributeError):
+            o.get_nonexistent()
+
+
+class TestTradeGetters:
+    def test_get_incoming_order_id(self) -> None:
+        book = Book()
+        a1 = ask("X", 10.0, 50)
+        book.match(a1)
+        b1 = bid("X", 10.0, 50)
+        blotter = book.match(b1)
+        trade = blotter.trades[0]
+        assert trade.get_incoming_order_id() == trade.incoming_order_id
+        assert isinstance(trade.get_incoming_order_id(), uuid.UUID)
+
+    def test_get_standing_order_id(self) -> None:
+        book = Book()
+        a1 = ask("X", 10.0, 50)
+        book.match(a1)
+        b1 = bid("X", 10.0, 50)
+        blotter = book.match(b1)
+        trade = blotter.trades[0]
+        assert trade.get_standing_order_id() == trade.standing_order_id
+        assert trade.get_standing_order_id() == a1.id
+
+    def test_get_fill_quantity(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        blotter = book.match(bid("X", 10.0, 30))
+        trade = blotter.trades[0]
+        assert trade.get_fill_quantity() == 30
+
+    def test_get_fill_price(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        blotter = book.match(bid("X", 10.0, 50))
+        trade = blotter.trades[0]
+        assert trade.get_fill_price() == Decimal("10")
+        assert isinstance(trade.get_fill_price(), Decimal)
+
+
+class TestTradeBlotterGetters:
+    def test_get_order(self) -> None:
+        book = Book()
+        blotter = book.match(bid("X", 10.0, 50))
+        order = blotter.get_order()
+        assert order is not None
+        assert order.symbol == "X"
+        assert order.quantity == 50
+
+    def test_get_trades_empty(self) -> None:
+        book = Book()
+        blotter = book.match(bid("X", 10.0, 50))
+        assert blotter.get_trades() == []
+
+    def test_get_trades_with_fills(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        blotter = book.match(bid("X", 10.0, 50))
+        trades = blotter.get_trades()
+        assert len(trades) == 1
+        assert isinstance(trades[0], Trade)
+
+    def test_get_total_cost(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        blotter = book.match(bid("X", 10.0, 50))
+        assert blotter.get_total_cost() == 500.0
+
+    def test_get_average_price(self) -> None:
+        book = Book()
+        book.match([ask("X", 10.0, 50), ask("X", 20.0, 50)])
+        blotter = book.match(bid("X", 25.0, 100))
+        assert blotter.get_average_price() == 15.0
+
+    def test_get_total_cost_no_trades(self) -> None:
+        book = Book()
+        blotter = book.match(bid("X", 10.0, 50))
+        assert blotter.get_total_cost() == 0.0
+
+    def test_get_average_price_no_trades(self) -> None:
+        book = Book()
+        blotter = book.match(bid("X", 10.0, 50))
+        assert blotter.get_average_price() == 0.0
+
+
+class TestSnapshotGetters:
+    def test_get_bids(self) -> None:
+        book = Book()
+        book.match([bid("X", 10.0, 50), bid("X", 11.0, 30)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        bids = snap.get_bids()
+        assert len(bids) == 2
+        assert isinstance(bids[0], SnapshotLevel)
+        assert bids[0].price == Decimal("11")
+
+    def test_get_asks(self) -> None:
+        book = Book()
+        book.match([ask("X", 10.0, 50), ask("X", 11.0, 30)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        asks = snap.get_asks()
+        assert len(asks) == 2
+        assert asks[0].price == Decimal("10")
+
+    def test_get_spread(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        book.match(ask("X", 12.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_spread() == Decimal("2")
+
+    def test_get_spread_none(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_spread() is None
+
+    def test_get_midpoint(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        book.match(ask("X", 12.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_midpoint() == Decimal("11")
+
+    def test_get_bid_vwap(self) -> None:
+        book = Book()
+        book.match([bid("X", 10.0, 50), bid("X", 20.0, 50)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_bid_vwap() == Decimal("15")
+
+    def test_get_ask_vwap(self) -> None:
+        book = Book()
+        book.match([ask("X", 10.0, 50), ask("X", 20.0, 50)])
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_ask_vwap() == Decimal("15")
+
+    def test_get_bid_vwap_none(self) -> None:
+        book = Book()
+        book.match(ask("X", 10.0, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        assert snap.get_bid_vwap() is None
+
+
+class TestSnapshotLevelGetters:
+    def test_get_price(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.5, 50))
+        snap = book.snapshot("X")
+        assert snap is not None
+        lvl = snap.bids[0]
+        assert lvl.get_price() == Decimal("10.5")
+        assert isinstance(lvl.get_price(), Decimal)
+
+    def test_get_quantity(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 75))
+        snap = book.snapshot("X")
+        assert snap is not None
+        lvl = snap.bids[0]
+        assert lvl.get_quantity() == 75
+        assert isinstance(lvl.get_quantity(), int)
+
+
+class TestPriceLevelGetters:
+    def test_get_side(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        level = book.get_level("X", Side.BID, Decimal("10"))
+        assert level is not None
+        assert level.get_side() == Side.BID
+
+    def test_get_price(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        level = book.get_level("X", Side.BID, Decimal("10"))
+        assert level is not None
+        assert level.get_price() == Decimal("10")
+        assert isinstance(level.get_price(), Decimal)
+
+    def test_get_orders(self) -> None:
+        book = Book()
+        book.match([bid("X", 10.0, 50), bid("X", 10.0, 30)])
+        level = book.get_level("X", Side.BID, Decimal("10"))
+        assert level is not None
+        orders = level.get_orders()
+        assert isinstance(orders, OrderQueue)
+        assert len(orders) == 2
+
+
+class TestBookGetters:
+    def test_get_order_map_empty(self) -> None:
+        book = Book()
+        om = book.get_order_map()
+        assert len(om) == 0
+
+    def test_get_order_map_with_orders(self) -> None:
+        book = Book()
+        b1 = bid("X", 10.0, 50)
+        book.match(b1)
+        om = book.get_order_map()
+        assert len(om) == 1
+        assert b1.id in om
+
+    def test_get_levels(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        levels = book.get_levels()
+        assert isinstance(levels, dict)
+        assert "X" in levels
+
+    def test_get_level_map(self) -> None:
+        book = Book()
+        book.match(bid("X", 10.0, 50))
+        lm = book.get_level_map()
+        assert isinstance(lm, dict)
+        assert "X" in lm
+        assert Side.BID in lm["X"]
+        assert Decimal("10") in lm["X"][Side.BID]

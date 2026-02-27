@@ -177,10 +177,8 @@ pub struct Order {
     pub original_quantity: i64,
 }
 
-#[pymethods]
 impl Order {
-    #[new]
-    fn new(side: Side, symbol: String, price: f64, quantity: i64) -> PyResult<Self> {
+    pub(crate) fn try_new(side: Side, symbol: String, price: f64, quantity: i64) -> PyResult<Self> {
         if quantity <= 0 {
             return Err(pyo3::exceptions::PyValueError::new_err(
                 "Order quantity must be greater than zero",
@@ -199,6 +197,14 @@ impl Order {
             side,
             original_quantity: quantity,
         })
+    }
+}
+
+#[pymethods]
+impl Order {
+    #[new]
+    fn new(side: Side, symbol: String, price: f64, quantity: i64) -> PyResult<Self> {
+        Self::try_new(side, symbol, price, quantity)
     }
 
     /// Return the order id as a Python uuid.UUID.
@@ -248,6 +254,11 @@ impl Order {
         } else {
             OrderStatus::QUEUED
         }
+    }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
     }
 }
 

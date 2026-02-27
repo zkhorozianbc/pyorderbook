@@ -1,6 +1,6 @@
 use pyo3::prelude::*;
-use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::collections::VecDeque;
 use uuid::Uuid;
 
@@ -69,6 +69,11 @@ impl Trade {
     #[getter]
     fn fill_price(&self, py: Python<'_>) -> PyResult<PyObject> {
         decimal_to_py(py, self.fill_price)
+    }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
     }
 }
 
@@ -139,6 +144,11 @@ impl TradeBlotter {
     fn average_price(&self) -> f64 {
         self.average_price
     }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
+    }
 }
 
 impl TradeBlotter {
@@ -167,10 +177,7 @@ fn compute_blotter_stats(trades: &[Trade]) -> (f64, f64) {
     let count = Decimal::from(trades.len() as i64);
     let tc = sum_cost.to_f64().unwrap_or(0.0);
     let ap = (sum_price / count).to_f64().unwrap_or(0.0);
-    (
-        (tc * 100.0).round() / 100.0,
-        (ap * 100.0).round() / 100.0,
-    )
+    ((tc * 100.0).round() / 100.0, (ap * 100.0).round() / 100.0)
 }
 
 // ---------------------------------------------------------------------------
@@ -201,16 +208,17 @@ impl OrderQueue {
     }
 
     fn peek(&self, py: Python<'_>) -> PyResult<Py<Order>> {
-        let order = self.orders.front().ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err("Order Queue is Empty!")
-        })?;
+        let order = self
+            .orders
+            .front()
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Order Queue is Empty!"))?;
         Py::new(py, order.clone())
     }
 
     fn popleft(&mut self) -> PyResult<()> {
-        self.orders.pop_front().ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err("Order Queue is Empty!")
-        })?;
+        self.orders
+            .pop_front()
+            .ok_or_else(|| pyo3::exceptions::PyValueError::new_err("Order Queue is Empty!"))?;
         Ok(())
     }
 
@@ -220,9 +228,11 @@ impl OrderQueue {
         let uid = Uuid::parse_str(&id_str).map_err(|e| {
             pyo3::exceptions::PyValueError::new_err(format!("Invalid order_id: {}", e))
         })?;
-        let pos = self.orders.iter().position(|o| o.id == uid).ok_or_else(|| {
-            pyo3::exceptions::PyKeyError::new_err(uid.to_string())
-        })?;
+        let pos = self
+            .orders
+            .iter()
+            .position(|o| o.id == uid)
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(uid.to_string()))?;
         let order = self.orders.remove(pos).unwrap();
         Py::new(py, order)
     }
@@ -230,12 +240,13 @@ impl OrderQueue {
     /// Keyed lookup by UUID (dict[uuid] parity).
     fn __getitem__(&self, key: &Bound<'_, pyo3::PyAny>, py: Python<'_>) -> PyResult<Py<Order>> {
         let id_str: String = key.str()?.extract()?;
-        let uid = Uuid::parse_str(&id_str).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid key: {}", e))
-        })?;
-        let order = self.orders.iter().find(|o| o.id == uid).ok_or_else(|| {
-            pyo3::exceptions::PyKeyError::new_err(uid.to_string())
-        })?;
+        let uid = Uuid::parse_str(&id_str)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("Invalid key: {}", e)))?;
+        let order = self
+            .orders
+            .iter()
+            .find(|o| o.id == uid)
+            .ok_or_else(|| pyo3::exceptions::PyKeyError::new_err(uid.to_string()))?;
         Py::new(py, order.clone())
     }
 
@@ -315,6 +326,11 @@ impl PriceLevel {
             // ASK comparator is `le` — __lt__ returns True when self.price <= other.price
             Side::ASK => self.price <= other.price,
         }
+    }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
     }
 }
 

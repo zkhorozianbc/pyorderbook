@@ -1,6 +1,21 @@
 from decimal import Decimal
+from pathlib import Path
+
+import pytest
 
 from pyorderbook import Book, ask, bid
+
+
+def _write_orders_parquet(path: Path, rows: list[dict[str, object]]) -> None:
+    pa = pytest.importorskip("pyarrow")
+    parquet = pytest.importorskip("pyarrow.parquet")
+    table = pa.table({
+        "side": [str(row["side"]) for row in rows],
+        "symbol": [str(row["symbol"]) for row in rows],
+        "price": [float(row["price"]) for row in rows],
+        "quantity": [int(row["quantity"]) for row in rows],
+    })
+    parquet.write_table(table, path)
 
 
 def test_bid() -> None:
@@ -74,3 +89,58 @@ def test_snapshot() -> None:
     assert snap2 is not None
     assert len(snap2.bids) == 1
     assert snap2.bids[0].quantity == 100
+
+
+def test_replay_parquet(tmp_path: Path) -> None:
+    parquet_path = tmp_path / "orders.parquet"
+    _write_orders_parquet(
+        parquet_path,
+        [
+            {"side": "ask", "symbol": "X", "price": 10.0, "quantity": 40},
+            {"side": "bid", "symbol": "X", "price": 10.0, "quantity": 30},
+            {"side": "bid", "symbol": "X", "price": 10.0, "quantity": 20},
+        ],
+    )
+
+    book = Book()
+    blotters = book.replay_parquet(str(parquet_path))
+
+    assert len(blotters) == 3
+    assert sum(len(blotter.trades) for blotter in blotters) == 2
+    snap = book.snapshot("X")
+    assert snap is not None
+    assert len(snap.bids) == 1
+    assert snap.bids[0].quantity == 10
+    assert len(snap.asks) == 0
+
+
+def test_from_parquet_ingests_standing_orders(tmp_path: Path) -> None:
+    parquet_path = tmp_path / "snapshot.parquet"
+    _write_orders_parquet(
+        parquet_path,
+        [
+            {"side": "bid", "symbol": "AAPL", "price": 99.0, "quantity": 10},
+            {"side": "ask", "symbol": "AAPL", "price": 101.0, "quantity": 20},
+        ],
+    )
+
+    book = Book.from_parquet(str(parquet_path))
+    snap = book.snapshot("AAPL")
+
+    assert len(book.order_map) == 2
+    assert snap is not None
+    assert snap.bids[0].price == Decimal("99")
+    assert snap.bids[0].quantity == 10
+    assert snap.asks[0].price == Decimal("101")
+    assert snap.asks[0].quantity == 20
+
+
+def test_replay_parquet_missing_columns_raises(tmp_path: Path) -> None:
+    pa = pytest.importorskip("pyarrow")
+    parquet = pytest.importorskip("pyarrow.parquet")
+    parquet_path = tmp_path / "invalid.parquet"
+    parquet.write_table(pa.table({"side": ["bid"], "symbol": ["X"]}), parquet_path)
+
+    book = Book()
+    with pytest.raises(ValueError, match="missing"):
+        book.replay_parquet(str(parquet_path))

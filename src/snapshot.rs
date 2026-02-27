@@ -25,6 +25,11 @@ impl SnapshotLevel {
     fn quantity(&self) -> i64 {
         self.quantity
     }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
+    }
 }
 
 impl SnapshotLevel {
@@ -86,6 +91,11 @@ impl Snapshot {
     #[getter]
     fn ask_vwap(&self, py: Python<'_>) -> PyResult<PyObject> {
         optional_decimal_to_py(py, self.ask_vwap)
+    }
+
+    fn __getattr__(slf: PyRef<'_, Self>, name: &str, py: Python<'_>) -> PyResult<PyObject> {
+        let self_obj = crate::getter::pyref_to_object(py, &slf);
+        crate::getter::handle_getter_attr(py, self_obj, name)
     }
 }
 
