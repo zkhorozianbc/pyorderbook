@@ -1,6 +1,6 @@
 """Basic order matching — price-time priority, partial fills, cancellation."""
 
-from pyorderbook import Book, Side, ask, bid
+from pyorderbook import Book, ask, bid
 
 book = Book()
 
@@ -13,7 +13,7 @@ print("Standing asks placed at $150, $151, $152")
 
 # Incoming bid sweeps through the best asks
 blotter = book.match(bid("AAPL", 155.0, 120))
-print(f"\nBid for 120 @ $155:")
+print("\nBid for 120 @ $155:")
 print(f"  Trades: {len(blotter.trades)}")
 for t in blotter.trades:
     print(f"    Filled {t.fill_quantity} @ ${t.fill_price}")
@@ -23,7 +23,7 @@ print(f"  Remaining:  {blotter.order.quantity} (status: {blotter.order.status})"
 
 # Partial fill — bid doesn't fully consume the book
 blotter2 = book.match(bid("AAPL", 151.5, 25))
-print(f"\nBid for 25 @ $151.50:")
+print("\nBid for 25 @ $151.50:")
 print(f"  Trades: {len(blotter2.trades)}")
 for t in blotter2.trades:
     print(f"    Filled {t.fill_quantity} @ ${t.fill_price}")
@@ -45,7 +45,7 @@ b2 = bid("TSLA", 200.0, 50)
 b3 = bid("TSLA", 200.0, 50)
 book.match([b2, b3])
 blotter3 = book.match(ask("TSLA", 200.0, 60))
-print(f"\nFIFO test — two bids at $200, ask for 60:")
+print("\nFIFO test — two bids at $200, ask for 60:")
 for t in blotter3.trades:
     standing = "b2" if t.standing_order_id == b2.id else "b3"
     print(f"  Matched {standing}: {t.fill_quantity} @ ${t.fill_price}")
@@ -57,5 +57,5 @@ print(f"\nGOOG ask vs MSFT bid: {len(blotter4.trades)} trades (symbols don't cro
 
 # Show the order map
 print(f"\nStanding orders in book: {len(book.order_map)}")
-for uid, order in book.order_map.items():
+for _uid, order in book.order_map.items():
     print(f"  {order.side} {order.symbol} {order.quantity}@{order.price}")

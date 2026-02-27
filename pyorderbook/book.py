@@ -32,9 +32,7 @@ def _read_parquet_rows(path: str) -> list[dict[str, object]]:
     if missing_columns:
         required = ", ".join(REQUIRED_PARQUET_COLUMNS)
         missing = ", ".join(missing_columns)
-        raise ValueError(
-            f"Parquet file must contain columns [{required}]; missing [{missing}]."
-        )
+        raise ValueError(f"Parquet file must contain columns [{required}]; missing [{missing}].")
     return cast(list[dict[str, object]], table.to_pylist())
 
 
@@ -319,9 +317,7 @@ class Book:
         try:
             if isinstance(quantity_raw, float):
                 if not quantity_raw.is_integer():
-                    raise ValueError(
-                        f"Invalid quantity at row {row_idx}: '{quantity_raw}'"
-                    )
+                    raise ValueError(f"Invalid quantity at row {row_idx}: '{quantity_raw}'")
                 quantity = int(quantity_raw)
             elif isinstance(quantity_raw, int | str):
                 quantity = int(quantity_raw)

@@ -21,7 +21,7 @@ prices = []
 quantities = []
 
 # Generate 200 orders with realistic price clustering around base prices
-for i in range(200):
+for _i in range(200):
     symbol = random.choice(SYMBOLS)
     base = BASE_PRICES[symbol]
     side = random.choice(["bid", "ask"])
@@ -39,25 +39,30 @@ for i in range(200):
     prices.append(price)
     quantities.append(quantity)
 
-schema = pa.schema([
-    ("side", pa.utf8()),
-    ("symbol", pa.utf8()),
-    ("price", pa.float64()),
-    ("quantity", pa.int64()),
-])
+schema = pa.schema(
+    [
+        ("side", pa.utf8()),
+        ("symbol", pa.utf8()),
+        ("price", pa.float64()),
+        ("quantity", pa.int64()),
+    ]
+)
 
-table = pa.table({
-    "side": sides,
-    "symbol": symbols,
-    "price": prices,
-    "quantity": quantities,
-}, schema=schema)
+table = pa.table(
+    {
+        "side": sides,
+        "symbol": symbols,
+        "price": prices,
+        "quantity": quantities,
+    },
+    schema=schema,
+)
 
 output = Path(__file__).parent / "sample_orders.parquet"
 pq.write_table(table, output)
 print(f"Wrote {len(table)} orders to {output}")
 print(f"Schema:\n{table.schema}")
-print(f"\nFirst 10 rows:")
+print("\nFirst 10 rows:")
 preview = table.slice(0, 10)
 for i in range(len(preview)):
     s, sym, px, qty = (preview.column(c)[i].as_py() for c in range(4))
