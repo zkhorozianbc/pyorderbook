@@ -6,6 +6,7 @@ on:
     paths:
       - 'pyorderbook/**'
       - 'src/**'
+      - 'tests/**'
       - 'Cargo.toml'
       - '.github/workflows/**'
     tags:
@@ -16,6 +17,7 @@ on:
     paths:
       - 'pyorderbook/**'
       - 'src/**'
+      - 'tests/**'
       - 'Cargo.toml'
       - '.github/workflows/**'
   # still allow manual triggers
@@ -33,6 +35,7 @@ jobs:
             code:
               - 'pyorderbook/**'
               - 'src/**'
+              - 'tests/**'
               - 'Cargo.toml'
               - '.github/workflows/**'
     outputs:
