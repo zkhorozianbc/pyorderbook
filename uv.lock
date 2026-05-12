@@ -272,7 +272,7 @@ wheels = [
 
 [[package]]
 name = "pyorderbook"
-version = "0.5.0"
+version = "1.0.7"
 source = { editable = "." }
 
 [package.dev-dependencies]
