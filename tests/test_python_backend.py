@@ -378,9 +378,7 @@ def test_order_from_parquet_row_accepts_string_price_and_integer_float_quantity(
         ({"side": "bid", "symbol": "AAPL", "price": 1, "quantity": 0}, "greater than zero"),
     ],
 )
-def test_order_from_parquet_row_rejects_bad_rows(
-    row: dict[str, object], message: str
-) -> None:
+def test_order_from_parquet_row_rejects_bad_rows(row: dict[str, object], message: str) -> None:
     with pytest.raises(ValueError, match=message):
         Book._order_from_parquet_row(row, row_idx=3)
 

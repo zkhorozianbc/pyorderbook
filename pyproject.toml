@@ -44,6 +44,10 @@ strict = true
 module = "toml"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_decorators = false
+
 [tool.ruff.lint]
 select = [ "E", "F", "UP", "B", "SIM", "I",]
 ignore = []
