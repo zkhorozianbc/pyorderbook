@@ -12,6 +12,6 @@ default = []
 extension-module = ["pyo3/extension-module"]
 
 [dependencies]
-pyo3 = { version = "0.23" }
+pyo3 = { version = "0.23", features = ["abi3-py311"] }
 rust_decimal = { version = "1", features = ["maths"] }
 uuid = { version = "1", features = ["v4"] }
