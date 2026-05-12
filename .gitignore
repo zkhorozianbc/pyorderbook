@@ -17,3 +17,6 @@ target/
 *.so
 *.pyd
 *.dylib
+
+# macOS
+.DS_Store

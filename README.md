@@ -9,6 +9,9 @@ A high-performance limit order book and matching engine for Python, with a Rust 
 
 ```sh
 pip install pyorderbook
+
+# uv
+uv pip install pyorderbook
 ```
 
 ## Quick Start
