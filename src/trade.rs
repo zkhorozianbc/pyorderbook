@@ -344,3 +344,45 @@ impl PriceLevel {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::order::{Order, Side};
+
+    #[test]
+    fn trade_blotter_stats_round_total_cost_and_average_price() {
+        let order = Order::try_new(Side::BID, "AAPL".to_string(), 25.0, 3).unwrap();
+        let first = Trade::from_rust(
+            order.id,
+            Uuid::new_v4(),
+            2,
+            Decimal::from_str_exact("10.123").unwrap(),
+        );
+        let second = Trade::from_rust(
+            order.id,
+            Uuid::new_v4(),
+            1,
+            Decimal::from_str_exact("20.789").unwrap(),
+        );
+
+        let blotter = TradeBlotter::from_rust(order, vec![first, second]);
+
+        assert_eq!(blotter.total_cost, 41.04);
+        assert_eq!(blotter.average_price, 15.46);
+    }
+
+    #[test]
+    fn order_queue_preserves_fifo_entries() {
+        let first = Order::try_new(Side::BID, "AAPL".to_string(), 10.0, 1).unwrap();
+        let second = Order::try_new(Side::BID, "AAPL".to_string(), 11.0, 1).unwrap();
+        let mut queue = OrderQueue::new();
+
+        queue.append_order(first.clone());
+        queue.append_order(second.clone());
+
+        assert_eq!(queue.orders.len(), 2);
+        assert_eq!(queue.orders[0].id, first.id);
+        assert_eq!(queue.orders[1].id, second.id);
+    }
+}

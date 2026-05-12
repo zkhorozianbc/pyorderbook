@@ -279,6 +279,16 @@ impl Book {
         }
     }
 
+    /// Create a bid order using the same signature as pyorderbook.bid.
+    fn bid(&self, symbol: String, price: f64, quantity: i64) -> PyResult<Order> {
+        Order::try_new(Side::BID, symbol, price, quantity)
+    }
+
+    /// Create an ask order using the same signature as pyorderbook.ask.
+    fn ask(&self, symbol: String, price: f64, quantity: i64) -> PyResult<Order> {
+        Order::try_new(Side::ASK, symbol, price, quantity)
+    }
+
     /// Match incoming order(s). Accepts a single Order or a list of Orders.
     /// Returns a TradeBlotter or list of TradeBlotters respectively.
     #[pyo3(name = "match")]
@@ -762,5 +772,82 @@ impl Book {
         result_order.quantity = result.remaining_qty;
 
         Ok(TradeBlotter::from_rust(result_order, result.trades))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::order::{Order, Side};
+
+    #[test]
+    fn match_single_fills_standing_order_and_enqueues_remainder() {
+        let mut book = Book::new();
+        let standing_ask = Order::try_new(Side::ASK, "AAPL".to_string(), 10.0, 5).unwrap();
+        let incoming_bid = Order::try_new(Side::BID, "AAPL".to_string(), 12.0, 7).unwrap();
+
+        let queued = book.match_single(&standing_ask).unwrap();
+        assert!(queued.trades.is_empty());
+        assert!(book.order_map.contains_key(&standing_ask.id));
+
+        let filled = book.match_single(&incoming_bid).unwrap();
+
+        assert_eq!(filled.trades.len(), 1);
+        assert_eq!(filled.trades[0].standing_order_id, standing_ask.id);
+        assert_eq!(filled.trades[0].fill_quantity, 5);
+        assert_eq!(
+            filled.trades[0].fill_price,
+            Decimal::from_str_exact("10").unwrap()
+        );
+        assert_eq!(filled.order.quantity, 2);
+        assert!(!book.order_map.contains_key(&standing_ask.id));
+        assert!(book.order_map.contains_key(&incoming_bid.id));
+
+        let symbol_book = book.symbols.get("AAPL").unwrap();
+        assert_eq!(symbol_book.asks.levels.len(), 0);
+        assert_eq!(symbol_book.bids.levels.len(), 1);
+        assert_eq!(symbol_book.bids.levels[0].orders[0].quantity, 2);
+    }
+
+    #[test]
+    fn snapshot_clamps_depth_and_computes_two_sided_metrics() {
+        let mut book = Book::new();
+        let bid = Order::try_new(Side::BID, "AAPL".to_string(), 99.0, 10).unwrap();
+        let ask = Order::try_new(Side::ASK, "AAPL".to_string(), 101.0, 30).unwrap();
+        book.match_single(&bid).unwrap();
+        book.match_single(&ask).unwrap();
+
+        let snapshot = book.snapshot("AAPL", 5).unwrap();
+
+        assert_eq!(snapshot.bids.len(), 1);
+        assert_eq!(snapshot.asks.len(), 1);
+        assert_eq!(snapshot.bids[0].price, Decimal::from_str_exact("99").unwrap());
+        assert_eq!(snapshot.asks[0].price, Decimal::from_str_exact("101").unwrap());
+        assert_eq!(snapshot.spread, Some(Decimal::from_str_exact("2").unwrap()));
+        assert_eq!(
+            snapshot.midpoint,
+            Some(Decimal::from_str_exact("100").unwrap())
+        );
+        assert_eq!(
+            snapshot.bid_vwap,
+            Some(Decimal::from_str_exact("99").unwrap())
+        );
+        assert_eq!(
+            snapshot.ask_vwap,
+            Some(Decimal::from_str_exact("101").unwrap())
+        );
+
+        let empty = book.snapshot("AAPL", -1).unwrap();
+        assert!(empty.bids.is_empty());
+        assert!(empty.asks.is_empty());
+        assert_eq!(empty.spread, None);
+        assert!(book.snapshot("MSFT", 5).is_none());
+    }
+
+    #[test]
+    fn parquet_side_parser_accepts_api_values_and_rejects_unknown_side() {
+        assert_eq!(parse_parquet_side("bid", 0).unwrap(), Side::BID);
+        assert_eq!(parse_parquet_side("ASK", 1).unwrap(), Side::ASK);
+        assert!(parse_parquet_side("buy", 2).is_err());
     }
 }

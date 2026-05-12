@@ -51,6 +51,14 @@ class Book:
         )
         self.order_map: dict[UUID, Order] = {}
 
+    def bid(self, symbol: Symbol, price: float, quantity: int) -> Order:
+        """Create a bid order using the same signature as pyorderbook.bid."""
+        return Order(Side.BID, symbol, price, quantity)
+
+    def ask(self, symbol: Symbol, price: float, quantity: int) -> Order:
+        """Create an ask order using the same signature as pyorderbook.ask."""
+        return Order(Side.ASK, symbol, price, quantity)
+
     @overload
     def match(self, orders: Order) -> TradeBlotter: ...
 

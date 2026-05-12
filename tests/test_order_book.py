@@ -20,6 +20,19 @@ def _write_orders_parquet(path: Path, rows: list[dict[str, object]]) -> None:
     parquet.write_table(table, path)
 
 
+def test_book_bid_and_ask_methods() -> None:
+    book = Book()
+
+    book.match(book.bid("IBM", 3.5, 20))
+    book.match(book.ask("IBM", 3.6, 10))
+    trade_blotter = book.match(book.ask("IBM", 3.5, 10))
+
+    assert bid("IBM", 3.5, 1).side == book.bid("IBM", 3.5, 1).side
+    assert ask("IBM", 3.5, 1).side == book.ask("IBM", 3.5, 1).side
+    assert len(trade_blotter.trades) == 1
+    assert trade_blotter.average_price == 3.5
+
+
 def test_bid() -> None:
     book = Book()
     blotter = book.match([ask("IBM", 3.5, 70), ask("IBM", 3.6, 70), bid("IBM", 54.3, 140)])

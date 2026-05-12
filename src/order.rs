@@ -277,3 +277,40 @@ pub fn bid(symbol: String, price: f64, quantity: i64) -> PyResult<Order> {
 pub fn ask(symbol: String, price: f64, quantity: i64) -> PyResult<Order> {
     Order::new(Side::ASK, symbol, price, quantity)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn side_helpers_match_limit_order_rules() {
+        let bid_price = Decimal::from_str("12").unwrap();
+        let ask_price = Decimal::from_str("10").unwrap();
+
+        assert_eq!(Side::BID.as_str(), "bid");
+        assert_eq!(Side::ASK.as_str(), "ask");
+        assert_eq!(Side::BID.other(), Side::ASK);
+        assert_eq!(Side::ASK.other(), Side::BID);
+        assert!(Side::BID.price_is_matchable(bid_price, ask_price));
+        assert!(Side::ASK.price_is_matchable(ask_price, bid_price));
+        assert_eq!(Side::BID.calc_fill_price(bid_price, ask_price), ask_price);
+        assert_eq!(Side::ASK.calc_fill_price(ask_price, bid_price), bid_price);
+    }
+
+    #[test]
+    fn order_try_new_validates_quantity_and_reports_status() {
+        let mut order = Order::try_new(Side::BID, "AAPL".to_string(), 150.25, 100).unwrap();
+
+        assert_eq!(order.price, Decimal::from_str("150.25").unwrap());
+        assert_eq!(order.quantity, 100);
+        assert_eq!(order.status(), OrderStatus::QUEUED);
+
+        order.quantity = 40;
+        assert_eq!(order.status(), OrderStatus::PARTIAL_FILL);
+
+        order.quantity = 0;
+        assert_eq!(order.status(), OrderStatus::FILLED);
+
+        assert!(Order::try_new(Side::ASK, "AAPL".to_string(), 150.25, 0).is_err());
+    }
+}

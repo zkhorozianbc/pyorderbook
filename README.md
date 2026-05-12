@@ -22,11 +22,11 @@ from pyorderbook import Book, ask, bid
 book = Book()
 
 # Post two asks (sell orders)
-book.match(ask("AAPL", 150.00, 100))
-book.match(ask("AAPL", 151.00, 50))
+book.match(book.ask("AAPL", 150.00, 100))
+book.match(book.ask("AAPL", 151.00, 50))
 
 # Incoming bid sweeps both price levels
-blotter = book.match(bid("AAPL", 155.00, 120))
+blotter = book.match(book.bid("AAPL", 155.00, 120))
 
 for trade in blotter.trades:
     print(f"Filled {trade.fill_quantity} @ {trade.fill_price}")
@@ -41,10 +41,16 @@ print(f"Order status:  {blotter.order.status}")  # partial_fill (30 remaining)
 ### Orders
 
 ```python
-from pyorderbook import bid, ask, Order, Side
+from pyorderbook import Book, bid, ask, Order, Side
 
-order = bid("AAPL", 150.00, 100)   # Buy 100 AAPL @ $150
-order = ask("GOOG", 280.50, 50)    # Sell 50 GOOG @ $280.50
+book = Book()
+
+order = book.bid("AAPL", 150.00, 100)   # Buy 100 AAPL @ $150
+order = book.ask("GOOG", 280.50, 50)    # Sell 50 GOOG @ $280.50
+
+# Existing top-level helpers are still available
+order = bid("AAPL", 150.00, 100)
+order = ask("GOOG", 280.50, 50)
 
 # Or construct directly
 order = Order(Side.BID, "AAPL", 150.00, 100)
@@ -64,12 +70,12 @@ order.status             # queued | partial_fill | filled
 book = Book()
 
 # Single order — returns TradeBlotter
-blotter = book.match(bid("AAPL", 150.00, 100))
+blotter = book.match(book.bid("AAPL", 150.00, 100))
 
 # Batch — returns list[TradeBlotter]
 blotters = book.match([
-    ask("AAPL", 149.00, 50),
-    ask("AAPL", 150.00, 50),
+    book.ask("AAPL", 149.00, 50),
+    book.ask("AAPL", 150.00, 50),
 ])
 ```
 
@@ -91,7 +97,8 @@ Each `Trade` contains: `incoming_order_id`, `standing_order_id`, `fill_quantity`
 ### Cancel
 
 ```python
-order = bid("AAPL", 150.00, 100)
+book = Book()
+order = book.bid("AAPL", 150.00, 100)
 book.match(order)
 book.cancel(order)  # Raises KeyError if not found
 ```
