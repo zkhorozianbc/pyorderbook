@@ -1,159 +1,103 @@
 # PyOrderBook
 
-A high-performance limit order book and matching engine for Python, with a Rust backend via PyO3.
+A fast limit order book and matching engine for Python, powered by a Rust backend via PyO3.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## Installation
+## Why Use It
+
+- Price-time priority matching with FIFO at each price level.
+- Multi-symbol books from one `Book` instance.
+- L2 snapshots with depth, spread, midpoint, and side VWAP.
+- Decimal-backed prices to avoid binary floating-point surprises.
+- Optional Parquet ingestion for replaying event streams or loading snapshots.
+- Rust speed with a small, Pythonic API.
+
+## Install
 
 ```sh
 pip install pyorderbook
 
-# uv
+# or with uv
 uv pip install pyorderbook
 ```
 
-## Quick Start
+## 60-Second Example
 
 ```python
 from pyorderbook import Book, ask, bid
 
 book = Book()
 
-# Post two asks (sell orders)
-book.match(book.ask("AAPL", 150.00, 100))
-book.match(book.ask("AAPL", 151.00, 50))
+# Resting sell-side liquidity.
+book.match([
+    ask("AAPL", 150.00, 100),
+    ask("AAPL", 151.00, 50),
+])
 
-# Incoming bid sweeps both price levels
-blotter = book.match(book.bid("AAPL", 155.00, 120))
+# Incoming buy order crosses the spread and partially consumes the second level.
+blotter = book.match(bid("AAPL", 155.00, 120))
 
 for trade in blotter.trades:
-    print(f"Filled {trade.fill_quantity} @ {trade.fill_price}")
+    print(f"filled {trade.fill_quantity} @ {trade.fill_price}")
 
-print(f"Total cost:    ${blotter.total_cost}")
-print(f"Average price: ${blotter.average_price}")
-print(f"Order status:  {blotter.order.status}")  # partial_fill (30 remaining)
+print(f"status: {blotter.order.status}")
+print(f"remaining quantity: {blotter.order.quantity}")
+print(f"total cost: {blotter.total_cost}")
+
+snapshot = book.snapshot("AAPL", depth=3)
+print([(level.price, level.quantity) for level in snapshot.asks])
 ```
 
-## Core API
+Output:
 
-### Orders
-
-```python
-from pyorderbook import Book, bid, ask, Order, Side
-
-book = Book()
-
-order = book.bid("AAPL", 150.00, 100)   # Buy 100 AAPL @ $150
-order = book.ask("GOOG", 280.50, 50)    # Sell 50 GOOG @ $280.50
-
-# Existing top-level helpers are still available
-order = bid("AAPL", 150.00, 100)
-order = ask("GOOG", 280.50, 50)
-
-# Or construct directly
-order = Order(Side.BID, "AAPL", 150.00, 100)
-
-order.id                # UUID
-order.price             # Decimal
-order.quantity           # int (remaining)
-order.original_quantity  # int
-order.symbol             # str
-order.side               # Side.BID | Side.ASK
-order.status             # queued | partial_fill | filled
+```text
+filled 100 @ 150
+filled 20 @ 151
+status: filled
+remaining quantity: 0
+total cost: 18020.0
+[(Decimal('151'), 30)]
 ```
 
-### Matching
+## Mental Model
 
-```python
-book = Book()
+`Book` is the matching engine. Submit orders with `book.match(order)`.
 
-# Single order — returns TradeBlotter
-blotter = book.match(book.bid("AAPL", 150.00, 100))
+`bid(...)` and `ask(...)` create buy and sell `Order` objects. If an incoming order crosses
+resting liquidity, PyOrderBook fills the best available prices first and preserves FIFO order
+within the same price.
 
-# Batch — returns list[TradeBlotter]
-blotters = book.match([
-    book.ask("AAPL", 149.00, 50),
-    book.ask("AAPL", 150.00, 50),
-])
+`TradeBlotter` is returned from every match call. It contains the incoming order after matching,
+the trades that occurred, `total_cost`, and `average_price`.
+
+`Snapshot` is an aggregated L2 view of a symbol. Use `book.snapshot("AAPL", depth=5)` to inspect
+the current top levels without mutating the book.
+
+## Examples
+
+Run these from the repository root:
+
+| Example | What it shows | Command |
+| --- | --- | --- |
+| Basic matching | Crosses, partial fills, FIFO, cancel | `python examples/basic_matching.py` |
+| L2 snapshots | Depth, spread, midpoint, VWAP | `python examples/l2_snapshot.py` |
+| Parquet replay | Replay order events from Parquet | `python examples/parquet_replay.py` |
+| Sample data | Regenerate the replay dataset | `python examples/generate_sample_parquet.py` |
+
+Parquet examples require `pyarrow`.
+
+## Development
+
+```sh
+uv sync
+uv run maturin develop
+uv run pytest
 ```
 
-Price-time priority: orders match at the best available price, with earlier orders at the same price filling first.
-
-### TradeBlotter
-
-Every `match()` call returns a `TradeBlotter` with execution details:
-
-| Field           | Type           | Description                  |
-|-----------------|----------------|------------------------------|
-| `order`         | `Order`        | The incoming order           |
-| `trades`        | `list[Trade]`  | Fills that occurred          |
-| `total_cost`    | `float`        | Sum of price * quantity      |
-| `average_price` | `float`        | Mean fill price              |
-
-Each `Trade` contains: `incoming_order_id`, `standing_order_id`, `fill_quantity`, `fill_price`.
-
-### Cancel
-
-```python
-book = Book()
-order = book.bid("AAPL", 150.00, 100)
-book.match(order)
-book.cancel(order)  # Raises KeyError if not found
-```
-
-### Book Inspection
-
-```python
-book.get_order(order.id)                         # Order | None
-book.get_level("AAPL", Side.BID, Decimal("150")) # PriceLevel | None
-book.order_map                                    # dict[UUID, Order]
-```
-
-## L2 Snapshots
-
-```python
-snap = book.snapshot("AAPL", depth=5)
-
-snap.bids       # list[SnapshotLevel] — best bid first
-snap.asks       # list[SnapshotLevel] — best ask first
-snap.spread     # Decimal | None
-snap.midpoint   # Decimal | None
-snap.bid_vwap   # Decimal | None
-snap.ask_vwap   # Decimal | None
-```
-
-Each `SnapshotLevel` has `.price` (Decimal) and `.quantity` (int, aggregated across orders at that level).
-
-## Parquet Integration
-
-Requires `pyarrow`. Expected schema: `side` (str), `symbol` (str), `price` (numeric), `quantity` (int).
-
-### Replay Events
-
-Process time-ordered events through the matching engine:
-
-```python
-blotters = book.replay_parquet("events.parquet")
-```
-
-### Load Snapshot
-
-Load standing orders without matching:
-
-```python
-book = Book.from_parquet("snapshot.parquet")
-# or
-book.ingest_parquet("snapshot.parquet")
-```
-
-## Architecture
-
-- **Matching engine**: price-time priority (FIFO at each price level)
-- **Rust backend**: core data structures compiled via [PyO3](https://pyo3.rs) + [maturin](https://www.maturin.rs)
-- **Multi-symbol**: single `Book` instance handles all symbols independently
-- **Decimal prices**: all prices stored as `decimal.Decimal` to avoid floating-point errors
+The package exposes the Rust backend when the extension is available and falls back to the Python
+implementation when it is not.
 
 ## License
 
